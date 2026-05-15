@@ -11,6 +11,7 @@ import (
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/chapter"
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/handlers"
+	"github.com/ifaisalabid1/notes-platform-api/internal/note"
 	"github.com/ifaisalabid1/notes-platform-api/internal/semester"
 	"github.com/ifaisalabid1/notes-platform-api/internal/subject"
 	"github.com/ifaisalabid1/notes-platform-api/internal/unit"
@@ -49,6 +50,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 	chapterService := chapter.NewService(chapterRepository)
 	chapterHandler := chapter.NewHandler(chapterService, deps.Logger)
 
+	noteRepository := note.NewRepository(deps.DBPool)
+	noteService := note.NewService(noteRepository)
+	noteHandler := note.NewHandler(noteService, deps.Logger)
+
 	r.Get("/healthz", healthHandler.Check)
 
 	r.Route("/api/v1", func(r chi.Router) {
@@ -64,6 +69,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 
 			r.Get("/units/{unitID}/chapters", chapterHandler.ListPublicByUnit)
 			r.Get("/chapters/{chapterID}", chapterHandler.GetPublicByID)
+
+			r.Get("/chapters/{chapterID}/notes", noteHandler.ListPublicByChapter)
+			r.Get("/notes/{noteID}", noteHandler.GetPublicByID)
 		})
 
 		r.Route("/admin", func(r chi.Router) {
@@ -90,6 +98,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/chapters/{chapterID}", chapterHandler.GetAdminByID)
 			r.Patch("/chapters/{chapterID}", chapterHandler.Update)
 			r.Delete("/chapters/{chapterID}", chapterHandler.Delete)
+
+			r.Get("/chapters/{chapterID}/notes", noteHandler.ListAdminByChapter)
+			r.Post("/chapters/{chapterID}/notes", noteHandler.Create)
+			r.Get("/notes/{noteID}", noteHandler.GetAdminByID)
+			r.Patch("/notes/{noteID}", noteHandler.Update)
+			r.Delete("/notes/{noteID}", noteHandler.Delete)
 		})
 	})
 
