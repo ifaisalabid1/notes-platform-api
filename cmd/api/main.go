@@ -38,6 +38,7 @@ func main() {
 
 	router := apphttp.NewRouter(apphttp.RouterDeps{
 		Database: db,
+		DBPool:   db.Pool,
 		Logger:   logr,
 	})
 
