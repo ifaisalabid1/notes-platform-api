@@ -34,3 +34,7 @@ go.work.sum
 .vscode/
 
 cookies.txt
+
+file.pdf
+
+/storage/

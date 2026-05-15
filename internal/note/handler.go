@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -13,14 +15,16 @@ import (
 )
 
 type Handler struct {
-	service *Service
-	logger  *slog.Logger
+	service        *Service
+	logger         *slog.Logger
+	uploadMaxBytes int64
 }
 
-func NewHandler(service *Service, logger *slog.Logger) *Handler {
+func NewHandler(service *Service, logger *slog.Logger, uploadMaxBytes int64) *Handler {
 	return &Handler{
-		service: service,
-		logger:  logger,
+		service:        service,
+		logger:         logger,
+		uploadMaxBytes: uploadMaxBytes,
 	}
 }
 
@@ -44,6 +48,53 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusCreated, note)
+}
+
+func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
+	chapterID, ok := parseUUIDParam(w, r, "chapterID", "invalid_chapter_id", "Chapter ID must be a valid UUID.")
+	if !ok {
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, h.uploadMaxBytes)
+
+	if err := r.ParseMultipartForm(h.uploadMaxBytes); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid_multipart_form", "Request must be multipart/form-data and within the upload size limit.")
+		return
+	}
+
+	file, fileHeader, err := r.FormFile("file")
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "file_required", "File is required.")
+		return
+	}
+	defer file.Close()
+
+	description := nullableFormValue(r, "description")
+
+	sortOrder, err := parseIntFormValue(r.FormValue("sort_order"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid_sort_order", "Sort order must be a valid integer.")
+		return
+	}
+
+	input := UploadNoteInput{
+		Title:       r.FormValue("title"),
+		Slug:        r.FormValue("slug"),
+		Description: description,
+		SortOrder:   sortOrder,
+		IsPublished: ParseBoolFormValue(r.FormValue("is_published")),
+		File:        file,
+		FileHeader:  fileHeader,
+	}
+
+	createdNote, err := h.service.Upload(r.Context(), chapterID, input)
+	if err != nil {
+		h.handleWriteError(w, err, "failed to upload note")
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, createdNote)
 }
 
 func (h *Handler) ListAdminByChapter(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +231,12 @@ func (h *Handler) handleWriteError(w http.ResponseWriter, err error, logMessage 
 		response.Error(w, http.StatusBadRequest, "file_content_type_required", "File content type is required.")
 	case errors.Is(err, ErrInvalidFileSize):
 		response.Error(w, http.StatusBadRequest, "invalid_file_size", "File size must be greater than zero.")
+	case errors.Is(err, ErrFileRequired):
+		response.Error(w, http.StatusBadRequest, "file_required", "File is required.")
+	case errors.Is(err, ErrUnsupportedFileType):
+		response.Error(w, http.StatusBadRequest, "unsupported_file_type", "Only PDF, JPEG, PNG, and WebP files are supported.")
+	case errors.Is(err, ErrFileTooLarge):
+		response.Error(w, http.StatusRequestEntityTooLarge, "file_too_large", "Uploaded file is too large.")
 	case errors.Is(err, ErrNoteSlugConflicts):
 		response.Error(w, http.StatusConflict, "note_slug_conflict", "A note with this slug already exists in this chapter.")
 	case errors.Is(err, ErrObjectKeyConflicts):
@@ -210,4 +267,22 @@ func parseUUIDParam(
 	}
 
 	return id, true
+}
+
+func nullableFormValue(r *http.Request, key string) *string {
+	value := strings.TrimSpace(r.FormValue(key))
+	if value == "" {
+		return nil
+	}
+
+	return &value
+}
+
+func parseIntFormValue(value string) (int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, nil
+	}
+
+	return strconv.Atoi(value)
 }

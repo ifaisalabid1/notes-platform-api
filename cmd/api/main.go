@@ -18,6 +18,7 @@ import (
 	apphttp "github.com/ifaisalabid1/notes-platform-api/internal/http"
 	"github.com/ifaisalabid1/notes-platform-api/internal/platform/database"
 	"github.com/ifaisalabid1/notes-platform-api/internal/platform/logger"
+	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
 )
 
 func main() {
@@ -53,12 +54,16 @@ func main() {
 		sessionManager.Cookie.Domain = cfg.CookieDomain
 	}
 
+	objectStorage := storage.NewLocalStorage(cfg.LocalStorageDir)
+
 	router := apphttp.NewRouter(apphttp.RouterDeps{
 		Database:       db,
 		DBPool:         db.Pool,
 		Logger:         logr,
 		SessionManager: sessionManager,
 		OwnerEmail:     cfg.OwnerEmail,
+		ObjectStorage:  objectStorage,
+		UploadMaxBytes: cfg.UploadMaxBytes,
 	})
 
 	server := apphttp.NewServer(cfg.HTTPPort, router, logr)

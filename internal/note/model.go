@@ -1,6 +1,7 @@
 package note
 
 import (
+	"mime/multipart"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +36,16 @@ type CreateNoteInput struct {
 	IsWatermarked    bool    `json:"is_watermarked"`
 	IsPublished      bool    `json:"is_published"`
 	SortOrder        int     `json:"sort_order"`
+}
+
+type UploadNoteInput struct {
+	Title       string
+	Slug        string
+	Description *string
+	SortOrder   int
+	IsPublished bool
+	File        multipart.File
+	FileHeader  *multipart.FileHeader
 }
 
 type UpdateNoteInput struct {

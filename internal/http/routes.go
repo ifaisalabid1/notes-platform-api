@@ -15,6 +15,7 @@ import (
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/handlers"
 	"github.com/ifaisalabid1/notes-platform-api/internal/note"
 	"github.com/ifaisalabid1/notes-platform-api/internal/semester"
+	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
 	"github.com/ifaisalabid1/notes-platform-api/internal/subject"
 	"github.com/ifaisalabid1/notes-platform-api/internal/unit"
 )
@@ -25,6 +26,9 @@ type RouterDeps struct {
 	Logger         *slog.Logger
 	SessionManager *scs.SessionManager
 	OwnerEmail     string
+
+	ObjectStorage  storage.ObjectStorage
+	UploadMaxBytes int64
 }
 
 func NewRouter(deps RouterDeps) http.Handler {
@@ -61,8 +65,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 	chapterHandler := chapter.NewHandler(chapterService, deps.Logger)
 
 	noteRepository := note.NewRepository(deps.DBPool)
-	noteService := note.NewService(noteRepository)
-	noteHandler := note.NewHandler(noteService, deps.Logger)
+	noteService := note.NewService(noteRepository, deps.ObjectStorage, deps.UploadMaxBytes)
+	noteHandler := note.NewHandler(noteService, deps.Logger, deps.UploadMaxBytes)
 
 	r.Get("/healthz", healthHandler.Check)
 
@@ -122,6 +126,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 
 				r.Get("/chapters/{chapterID}/notes", noteHandler.ListAdminByChapter)
 				r.Post("/chapters/{chapterID}/notes", noteHandler.Create)
+				r.Post("/chapters/{chapterID}/notes/upload", noteHandler.Upload)
 				r.Get("/notes/{noteID}", noteHandler.GetAdminByID)
 				r.Patch("/notes/{noteID}", noteHandler.Update)
 				r.Delete("/notes/{noteID}", noteHandler.Delete)

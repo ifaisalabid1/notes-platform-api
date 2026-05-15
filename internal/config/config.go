@@ -15,6 +15,9 @@ type Config struct {
 	SessionCookieName string
 	CookieSecure      bool
 	CookieDomain      string
+
+	UploadMaxBytes  int64
+	LocalStorageDir string
 }
 
 func Load() (Config, error) {
@@ -25,6 +28,7 @@ func Load() (Config, error) {
 		OwnerEmail:        os.Getenv("OWNER_EMAIL"),
 		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "notes_platform_session"),
 		CookieDomain:      os.Getenv("COOKIE_DOMAIN"),
+		LocalStorageDir:   getEnv("LOCAL_STORAGE_DIR", "./storage"),
 	}
 
 	cookieSecure, err := strconv.ParseBool(getEnv("COOKIE_SECURE", "false"))
@@ -32,6 +36,12 @@ func Load() (Config, error) {
 		return Config{}, errors.New("COOKIE_SECURE must be true or false")
 	}
 	cfg.CookieSecure = cookieSecure
+
+	uploadMaxBytes, err := strconv.ParseInt(getEnv("UPLOAD_MAX_BYTES", "52428800"), 10, 64)
+	if err != nil || uploadMaxBytes <= 0 {
+		return Config{}, errors.New("UPLOAD_MAX_BYTES must be a positive integer")
+	}
+	cfg.UploadMaxBytes = uploadMaxBytes
 
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL is required")
