@@ -54,7 +54,18 @@ func main() {
 		sessionManager.Cookie.Domain = cfg.CookieDomain
 	}
 
-	objectStorage := storage.NewLocalStorage(cfg.LocalStorageDir)
+	objectStorage, err := storage.NewFromConfig(rootCtx, storage.FactoryConfig{
+		Driver:            cfg.StorageDriver,
+		LocalStorageDir:   cfg.LocalStorageDir,
+		R2AccountID:       cfg.R2AccountID,
+		R2AccessKeyID:     cfg.R2AccessKeyID,
+		R2SecretAccessKey: cfg.R2SecretAccessKey,
+		R2BucketName:      cfg.R2BucketName,
+	})
+	if err != nil {
+		logr.Error("failed to initialize object storage", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	router := apphttp.NewRouter(apphttp.RouterDeps{
 		Database:       db,
