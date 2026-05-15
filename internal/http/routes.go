@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/ifaisalabid1/notes-platform-api/internal/chapter"
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/handlers"
 	"github.com/ifaisalabid1/notes-platform-api/internal/semester"
 	"github.com/ifaisalabid1/notes-platform-api/internal/subject"
@@ -44,6 +45,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 	unitService := unit.NewService(unitRepository)
 	unitHandler := unit.NewHandler(unitService, deps.Logger)
 
+	chapterRepository := chapter.NewRepository(deps.DBPool)
+	chapterService := chapter.NewService(chapterRepository)
+	chapterHandler := chapter.NewHandler(chapterService, deps.Logger)
+
 	r.Get("/healthz", healthHandler.Check)
 
 	r.Route("/api/v1", func(r chi.Router) {
@@ -56,6 +61,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 
 			r.Get("/subjects/{subjectID}/units", unitHandler.ListPublicBySubject)
 			r.Get("/units/{unitID}", unitHandler.GetPublicByID)
+
+			r.Get("/units/{unitID}/chapters", chapterHandler.ListPublicByUnit)
+			r.Get("/chapters/{chapterID}", chapterHandler.GetPublicByID)
 		})
 
 		r.Route("/admin", func(r chi.Router) {
@@ -76,6 +84,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/units/{unitID}", unitHandler.GetAdminByID)
 			r.Patch("/units/{unitID}", unitHandler.Update)
 			r.Delete("/units/{unitID}", unitHandler.Delete)
+
+			r.Get("/units/{unitID}/chapters", chapterHandler.ListAdminByUnit)
+			r.Post("/units/{unitID}/chapters", chapterHandler.Create)
+			r.Get("/chapters/{chapterID}", chapterHandler.GetAdminByID)
+			r.Patch("/chapters/{chapterID}", chapterHandler.Update)
+			r.Delete("/chapters/{chapterID}", chapterHandler.Delete)
 		})
 	})
 
