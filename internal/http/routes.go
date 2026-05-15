@@ -11,6 +11,7 @@ import (
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/handlers"
 	"github.com/ifaisalabid1/notes-platform-api/internal/semester"
+	"github.com/ifaisalabid1/notes-platform-api/internal/subject"
 )
 
 type RouterDeps struct {
@@ -34,12 +35,19 @@ func NewRouter(deps RouterDeps) http.Handler {
 	semesterService := semester.NewService(semesterRepository)
 	semesterHandler := semester.NewHandler(semesterService, deps.Logger)
 
+	subjectRepository := subject.NewRepository(deps.DBPool)
+	subjectService := subject.NewService(subjectRepository)
+	subjectHandler := subject.NewHandler(subjectService, deps.Logger)
+
 	r.Get("/healthz", healthHandler.Check)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/public", func(r chi.Router) {
 			r.Get("/semesters", semesterHandler.ListPublic)
 			r.Get("/semesters/{semesterID}", semesterHandler.GetPublicByID)
+
+			r.Get("/semesters/{semesterID}/subjects", subjectHandler.ListPublicBySemester)
+			r.Get("/subjects/{subjectID}", subjectHandler.GetPublicByID)
 		})
 
 		r.Route("/admin", func(r chi.Router) {
@@ -48,6 +56,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/semesters/{semesterID}", semesterHandler.GetAdminByID)
 			r.Patch("/semesters/{semesterID}", semesterHandler.Update)
 			r.Delete("/semesters/{semesterID}", semesterHandler.Delete)
+
+			r.Get("/semesters/{semesterID}/subjects", subjectHandler.ListAdminBySemester)
+			r.Post("/semesters/{semesterID}/subjects", subjectHandler.Create)
+			r.Get("/subjects/{subjectID}", subjectHandler.GetAdminByID)
+			r.Patch("/subjects/{subjectID}", subjectHandler.Update)
+			r.Delete("/subjects/{subjectID}", subjectHandler.Delete)
 		})
 	})
 
