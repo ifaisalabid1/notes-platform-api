@@ -39,11 +39,15 @@ func NewRouter(deps RouterDeps) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/public", func(r chi.Router) {
 			r.Get("/semesters", semesterHandler.ListPublic)
+			r.Get("/semesters/{semesterID}", semesterHandler.GetPublicByID)
 		})
 
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/semesters", semesterHandler.ListAdmin)
 			r.Post("/semesters", semesterHandler.Create)
+			r.Get("/semesters/{semesterID}", semesterHandler.GetAdminByID)
+			r.Patch("/semesters/{semesterID}", semesterHandler.Update)
+			r.Delete("/semesters/{semesterID}", semesterHandler.Delete)
 		})
 	})
 

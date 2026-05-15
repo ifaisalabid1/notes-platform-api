@@ -24,3 +24,11 @@ type CreateSemesterInput struct {
 	SortOrder   int     `json:"sort_order"`
 	IsPublished bool    `json:"is_published"`
 }
+
+type UpdateSemesterInput struct {
+	Title       string  `json:"title"`
+	Slug        string  `json:"slug"`
+	Description *string `json:"description"`
+	SortOrder   int     `json:"sort_order"`
+	IsPublished bool    `json:"is_published"`
+}

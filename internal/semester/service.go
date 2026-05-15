@@ -5,6 +5,8 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -29,16 +31,8 @@ func (s *Service) Create(ctx context.Context, input CreateSemesterInput) (Semest
 	input.Title = strings.TrimSpace(input.Title)
 	input.Slug = strings.TrimSpace(input.Slug)
 
-	if input.Title == "" {
-		return Semester{}, ErrTitleRequired
-	}
-
-	if input.Slug == "" {
-		return Semester{}, ErrSlugRequired
-	}
-
-	if !slugPattern.MatchString(input.Slug) {
-		return Semester{}, ErrInvalidSlug
+	if err := validateTitleAndSlug(input.Title, input.Slug); err != nil {
+		return Semester{}, err
 	}
 
 	return s.repository.Create(ctx, input)
@@ -50,4 +44,43 @@ func (s *Service) ListAdmin(ctx context.Context) ([]Semester, error) {
 
 func (s *Service) ListPublic(ctx context.Context) ([]Semester, error) {
 	return s.repository.ListPublic(ctx)
+}
+
+func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (Semester, error) {
+	return s.repository.GetByID(ctx, id)
+}
+
+func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (Semester, error) {
+	return s.repository.GetPublishedByID(ctx, id)
+}
+
+func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateSemesterInput) (Semester, error) {
+	input.Title = strings.TrimSpace(input.Title)
+	input.Slug = strings.TrimSpace(input.Slug)
+
+	if err := validateTitleAndSlug(input.Title, input.Slug); err != nil {
+		return Semester{}, err
+	}
+
+	return s.repository.Update(ctx, id, input)
+}
+
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
+	return s.repository.Delete(ctx, id)
+}
+
+func validateTitleAndSlug(title string, slug string) error {
+	if title == "" {
+		return ErrTitleRequired
+	}
+
+	if slug == "" {
+		return ErrSlugRequired
+	}
+
+	if !slugPattern.MatchString(slug) {
+		return ErrInvalidSlug
+	}
+
+	return nil
 }

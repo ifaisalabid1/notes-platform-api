@@ -131,9 +131,62 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Semester, error
 		WHERE id = $1;
 	`
 
+	return r.getOne(ctx, query, id)
+}
+
+func (r *Repository) GetPublishedByID(ctx context.Context, id uuid.UUID) (Semester, error) {
+	const query = `
+		SELECT
+			id,
+			title,
+			slug,
+			description,
+			sort_order,
+			is_published,
+			created_at,
+			updated_at
+		FROM semesters
+		WHERE id = $1
+		AND is_published = true;
+	`
+
+	return r.getOne(ctx, query, id)
+}
+
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateSemesterInput) (Semester, error) {
+	const query = `
+		UPDATE semesters
+		SET
+			title = $2,
+			slug = $3,
+			description = $4,
+			sort_order = $5,
+			is_published = $6,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING
+			id,
+			title,
+			slug,
+			description,
+			sort_order,
+			is_published,
+			created_at,
+			updated_at;
+	`
+
 	var semester Semester
 
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	err := r.db.QueryRow(
+		ctx,
+		query,
+		id,
+		input.Title,
+		input.Slug,
+		input.Description,
+		input.SortOrder,
+		input.IsPublished,
+	).Scan(
 		&semester.ID,
 		&semester.Title,
 		&semester.Slug,
@@ -149,10 +202,32 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Semester, error
 			return Semester{}, ErrSemesterNotFound
 		}
 
-		return Semester{}, fmt.Errorf("get semester by id: %w", err)
+		if isUniqueViolation(err) {
+			return Semester{}, ErrSemesterSlugConflicts
+		}
+
+		return Semester{}, fmt.Errorf("update semester: %w", err)
 	}
 
 	return semester, nil
+}
+
+func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
+	const query = `
+		DELETE FROM semesters
+		WHERE id = $1;
+	`
+
+	commandTag, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete semester: %w", err)
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		return ErrSemesterNotFound
+	}
+
+	return nil
 }
 
 func (r *Repository) list(ctx context.Context, query string) ([]Semester, error) {
@@ -188,6 +263,31 @@ func (r *Repository) list(ctx context.Context, query string) ([]Semester, error)
 	}
 
 	return semesters, nil
+}
+
+func (r *Repository) getOne(ctx context.Context, query string, args ...any) (Semester, error) {
+	var semester Semester
+
+	err := r.db.QueryRow(ctx, query, args...).Scan(
+		&semester.ID,
+		&semester.Title,
+		&semester.Slug,
+		&semester.Description,
+		&semester.SortOrder,
+		&semester.IsPublished,
+		&semester.CreatedAt,
+		&semester.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Semester{}, ErrSemesterNotFound
+		}
+
+		return Semester{}, fmt.Errorf("get semester: %w", err)
+	}
+
+	return semester, nil
 }
 
 func isUniqueViolation(err error) bool {
