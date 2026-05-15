@@ -11,16 +11,20 @@ type Config struct {
 	HTTPPort    string
 	DatabaseURL string
 
-	CookieSecure bool
-	CookieDomain string
+	OwnerEmail        string
+	SessionCookieName string
+	CookieSecure      bool
+	CookieDomain      string
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		AppEnv:       getEnv("APP_ENV", "development"),
-		HTTPPort:     getEnv("HTTP_PORT", "8080"),
-		DatabaseURL:  os.Getenv("DATABASE_URL"),
-		CookieDomain: os.Getenv("COOKIE_DOMAIN"),
+		AppEnv:            getEnv("APP_ENV", "development"),
+		HTTPPort:          getEnv("HTTP_PORT", "8080"),
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		OwnerEmail:        os.Getenv("OWNER_EMAIL"),
+		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "notes_platform_session"),
+		CookieDomain:      os.Getenv("COOKIE_DOMAIN"),
 	}
 
 	cookieSecure, err := strconv.ParseBool(getEnv("COOKIE_SECURE", "false"))
@@ -33,6 +37,10 @@ func Load() (Config, error) {
 		return Config{}, errors.New("DATABASE_URL is required")
 	}
 
+	if cfg.OwnerEmail == "" {
+		return Config{}, errors.New("OWNER_EMAIL is required")
+	}
+
 	return cfg, nil
 }
 
@@ -41,5 +49,6 @@ func getEnv(key string, fallback string) string {
 	if value == "" {
 		return fallback
 	}
+
 	return value
 }

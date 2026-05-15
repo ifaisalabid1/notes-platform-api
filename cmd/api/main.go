@@ -4,11 +4,14 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/alexedwards/scs/pgxstore"
+	"github.com/alexedwards/scs/v2"
 	"github.com/joho/godotenv"
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/config"
@@ -36,10 +39,26 @@ func main() {
 	}
 	defer db.Close()
 
+	sessionManager := scs.New()
+	sessionManager.Store = pgxstore.New(db.Pool)
+	sessionManager.Lifetime = 24 * time.Hour
+	sessionManager.IdleTimeout = 2 * time.Hour
+	sessionManager.Cookie.Name = cfg.SessionCookieName
+	sessionManager.Cookie.HttpOnly = true
+	sessionManager.Cookie.Persist = true
+	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
+	sessionManager.Cookie.Secure = cfg.CookieSecure
+
+	if cfg.CookieDomain != "" {
+		sessionManager.Cookie.Domain = cfg.CookieDomain
+	}
+
 	router := apphttp.NewRouter(apphttp.RouterDeps{
-		Database: db,
-		DBPool:   db.Pool,
-		Logger:   logr,
+		Database:       db,
+		DBPool:         db.Pool,
+		Logger:         logr,
+		SessionManager: sessionManager,
+		OwnerEmail:     cfg.OwnerEmail,
 	})
 
 	server := apphttp.NewServer(cfg.HTTPPort, router, logr)

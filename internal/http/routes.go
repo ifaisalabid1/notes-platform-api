@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/ifaisalabid1/notes-platform-api/internal/admin"
 	"github.com/ifaisalabid1/notes-platform-api/internal/chapter"
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/handlers"
 	"github.com/ifaisalabid1/notes-platform-api/internal/note"
@@ -18,9 +20,11 @@ import (
 )
 
 type RouterDeps struct {
-	Database handlers.DatabasePinger
-	DBPool   *pgxpool.Pool
-	Logger   *slog.Logger
+	Database       handlers.DatabasePinger
+	DBPool         *pgxpool.Pool
+	Logger         *slog.Logger
+	SessionManager *scs.SessionManager
+	OwnerEmail     string
 }
 
 func NewRouter(deps RouterDeps) http.Handler {
@@ -31,8 +35,14 @@ func NewRouter(deps RouterDeps) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(middleware.RequestSize(20 << 20))
+	r.Use(deps.SessionManager.LoadAndSave)
 
 	healthHandler := handlers.NewHealthHandler(deps.Database, deps.Logger)
+
+	adminRepository := admin.NewRepository(deps.DBPool)
+	adminService := admin.NewService(adminRepository, deps.OwnerEmail)
+	adminHandler := admin.NewHandler(adminService, deps.SessionManager, deps.Logger)
+	adminMiddleware := admin.NewMiddleware(adminService, deps.SessionManager, deps.Logger)
 
 	semesterRepository := semester.NewRepository(deps.DBPool)
 	semesterService := semester.NewService(semesterRepository)
@@ -75,35 +85,47 @@ func NewRouter(deps RouterDeps) http.Handler {
 		})
 
 		r.Route("/admin", func(r chi.Router) {
-			r.Get("/semesters", semesterHandler.ListAdmin)
-			r.Post("/semesters", semesterHandler.Create)
-			r.Get("/semesters/{semesterID}", semesterHandler.GetAdminByID)
-			r.Patch("/semesters/{semesterID}", semesterHandler.Update)
-			r.Delete("/semesters/{semesterID}", semesterHandler.Delete)
+			r.Post("/bootstrap-owner", adminHandler.BootstrapOwner)
+			r.Post("/login", adminHandler.Login)
 
-			r.Get("/semesters/{semesterID}/subjects", subjectHandler.ListAdminBySemester)
-			r.Post("/semesters/{semesterID}/subjects", subjectHandler.Create)
-			r.Get("/subjects/{subjectID}", subjectHandler.GetAdminByID)
-			r.Patch("/subjects/{subjectID}", subjectHandler.Update)
-			r.Delete("/subjects/{subjectID}", subjectHandler.Delete)
+			r.Group(func(r chi.Router) {
+				r.Use(adminMiddleware.RequireAdmin)
 
-			r.Get("/subjects/{subjectID}/units", unitHandler.ListAdminBySubject)
-			r.Post("/subjects/{subjectID}/units", unitHandler.Create)
-			r.Get("/units/{unitID}", unitHandler.GetAdminByID)
-			r.Patch("/units/{unitID}", unitHandler.Update)
-			r.Delete("/units/{unitID}", unitHandler.Delete)
+				r.Post("/logout", adminHandler.Logout)
+				r.Get("/me", adminHandler.Me)
 
-			r.Get("/units/{unitID}/chapters", chapterHandler.ListAdminByUnit)
-			r.Post("/units/{unitID}/chapters", chapterHandler.Create)
-			r.Get("/chapters/{chapterID}", chapterHandler.GetAdminByID)
-			r.Patch("/chapters/{chapterID}", chapterHandler.Update)
-			r.Delete("/chapters/{chapterID}", chapterHandler.Delete)
+				r.With(adminMiddleware.RequireOwner).Post("/admins", adminHandler.CreateAdmin)
 
-			r.Get("/chapters/{chapterID}/notes", noteHandler.ListAdminByChapter)
-			r.Post("/chapters/{chapterID}/notes", noteHandler.Create)
-			r.Get("/notes/{noteID}", noteHandler.GetAdminByID)
-			r.Patch("/notes/{noteID}", noteHandler.Update)
-			r.Delete("/notes/{noteID}", noteHandler.Delete)
+				r.Get("/semesters", semesterHandler.ListAdmin)
+				r.Post("/semesters", semesterHandler.Create)
+				r.Get("/semesters/{semesterID}", semesterHandler.GetAdminByID)
+				r.Patch("/semesters/{semesterID}", semesterHandler.Update)
+				r.Delete("/semesters/{semesterID}", semesterHandler.Delete)
+
+				r.Get("/semesters/{semesterID}/subjects", subjectHandler.ListAdminBySemester)
+				r.Post("/semesters/{semesterID}/subjects", subjectHandler.Create)
+				r.Get("/subjects/{subjectID}", subjectHandler.GetAdminByID)
+				r.Patch("/subjects/{subjectID}", subjectHandler.Update)
+				r.Delete("/subjects/{subjectID}", subjectHandler.Delete)
+
+				r.Get("/subjects/{subjectID}/units", unitHandler.ListAdminBySubject)
+				r.Post("/subjects/{subjectID}/units", unitHandler.Create)
+				r.Get("/units/{unitID}", unitHandler.GetAdminByID)
+				r.Patch("/units/{unitID}", unitHandler.Update)
+				r.Delete("/units/{unitID}", unitHandler.Delete)
+
+				r.Get("/units/{unitID}/chapters", chapterHandler.ListAdminByUnit)
+				r.Post("/units/{unitID}/chapters", chapterHandler.Create)
+				r.Get("/chapters/{chapterID}", chapterHandler.GetAdminByID)
+				r.Patch("/chapters/{chapterID}", chapterHandler.Update)
+				r.Delete("/chapters/{chapterID}", chapterHandler.Delete)
+
+				r.Get("/chapters/{chapterID}/notes", noteHandler.ListAdminByChapter)
+				r.Post("/chapters/{chapterID}/notes", noteHandler.Create)
+				r.Get("/notes/{noteID}", noteHandler.GetAdminByID)
+				r.Patch("/notes/{noteID}", noteHandler.Update)
+				r.Delete("/notes/{noteID}", noteHandler.Delete)
+			})
 		})
 	})
 
