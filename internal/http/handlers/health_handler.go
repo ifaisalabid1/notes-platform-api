@@ -1,19 +1,48 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"time"
 )
 
-type HealthHandler struct{}
+type DatabasePinger interface {
+	Ping(ctx context.Context) error
+}
 
-func NewHealthHandler() *HealthHandler {
-	return &HealthHandler{}
+type HealthHandler struct {
+	database DatabasePinger
+	logger   *slog.Logger
+}
+
+func NewHealthHandler(database DatabasePinger, logger *slog.Logger) *HealthHandler {
+	return &HealthHandler{
+		database: database,
+		logger:   logger,
+	}
 }
 
 func (h *HealthHandler) Check(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
 	response := map[string]string{
-		"status": "ok",
+		"status":   "ok",
+		"database": "ok",
+	}
+
+	if err := h.database.Ping(ctx); err != nil {
+		h.logger.Error("database health check failed", slog.Any("error", err))
+
+		response["status"] = "degraded"
+		response["database"] = "error"
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

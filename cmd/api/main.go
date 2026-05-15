@@ -13,6 +13,7 @@ import (
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/config"
 	apphttp "github.com/ifaisalabid1/notes-platform-api/internal/http"
+	"github.com/ifaisalabid1/notes-platform-api/internal/platform/database"
 	"github.com/ifaisalabid1/notes-platform-api/internal/platform/logger"
 )
 
@@ -26,7 +27,20 @@ func main() {
 
 	logr := logger.New(cfg.AppEnv)
 
-	router := apphttp.NewRouter()
+	rootCtx := context.Background()
+
+	db, err := database.New(rootCtx, cfg.DatabaseURL, logr)
+	if err != nil {
+		logr.Error("failed to connect database", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	router := apphttp.NewRouter(apphttp.RouterDeps{
+		Database: db,
+		Logger:   logr,
+	})
+
 	server := apphttp.NewServer(cfg.HTTPPort, router, logr)
 
 	errCh := make(chan error, 1)
@@ -48,7 +62,7 @@ func main() {
 		logr.Info("received shutdown signal", slog.String("signal", sig.String()))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
