@@ -24,6 +24,8 @@ type Config struct {
 	R2AccessKeyID     string
 	R2SecretAccessKey string
 	R2BucketName      string
+
+	WorkerAPISecret string
 }
 
 func Load() (Config, error) {
@@ -41,6 +43,8 @@ func Load() (Config, error) {
 		R2AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
 		R2SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
 		R2BucketName:      os.Getenv("R2_BUCKET_NAME"),
+
+		WorkerAPISecret: os.Getenv("WORKER_API_SECRET"),
 	}
 
 	cookieSecure, err := strconv.ParseBool(getEnv("COOKIE_SECURE", "false"))
@@ -61,6 +65,10 @@ func Load() (Config, error) {
 
 	if cfg.OwnerEmail == "" {
 		return Config{}, errors.New("OWNER_EMAIL is required")
+	}
+
+	if cfg.WorkerAPISecret == "" {
+		return Config{}, errors.New("WORKER_API_SECRET is required")
 	}
 
 	switch cfg.StorageDriver {

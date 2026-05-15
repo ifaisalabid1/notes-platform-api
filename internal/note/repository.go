@@ -411,3 +411,39 @@ func isForeignKeyViolation(err error) bool {
 
 	return false
 }
+
+func (r *Repository) GetPublishedFileMetadata(ctx context.Context, id uuid.UUID) (FileMetadata, error) {
+	const query = `
+		SELECT
+			id,
+			title,
+			original_file_name,
+			stored_object_key,
+			file_content_type,
+			file_size_bytes
+		FROM notes
+		WHERE id = $1
+		AND is_published = true;
+	`
+
+	var metadata FileMetadata
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&metadata.NoteID,
+		&metadata.Title,
+		&metadata.OriginalFileName,
+		&metadata.StoredObjectKey,
+		&metadata.FileContentType,
+		&metadata.FileSizeBytes,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return FileMetadata{}, ErrNoteNotFound
+		}
+
+		return FileMetadata{}, fmt.Errorf("get published file metadata: %w", err)
+	}
+
+	return metadata, nil
+}

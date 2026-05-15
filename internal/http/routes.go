@@ -13,6 +13,7 @@ import (
 	"github.com/ifaisalabid1/notes-platform-api/internal/admin"
 	"github.com/ifaisalabid1/notes-platform-api/internal/chapter"
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/handlers"
+	"github.com/ifaisalabid1/notes-platform-api/internal/internalmw"
 	"github.com/ifaisalabid1/notes-platform-api/internal/note"
 	"github.com/ifaisalabid1/notes-platform-api/internal/semester"
 	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
@@ -29,6 +30,8 @@ type RouterDeps struct {
 
 	ObjectStorage  storage.ObjectStorage
 	UploadMaxBytes int64
+
+	WorkerAPISecret string
 }
 
 func NewRouter(deps RouterDeps) http.Handler {
@@ -69,6 +72,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 	noteHandler := note.NewHandler(noteService, deps.Logger, deps.UploadMaxBytes)
 
 	r.Get("/healthz", healthHandler.Check)
+
+	r.Route("/internal", func(r chi.Router) {
+		r.Use(internalmw.RequireWorkerSecret(deps.WorkerAPISecret))
+
+		r.Get("/notes/{noteID}/file", noteHandler.GetPublishedFileMetadata)
+	})
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/public", func(r chi.Router) {

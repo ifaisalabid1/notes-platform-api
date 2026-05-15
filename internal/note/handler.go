@@ -286,3 +286,18 @@ func parseIntFormValue(value string) (int, error) {
 
 	return strconv.Atoi(value)
 }
+
+func (h *Handler) GetPublishedFileMetadata(w http.ResponseWriter, r *http.Request) {
+	noteID, ok := parseUUIDParam(w, r, "noteID", "invalid_note_id", "Note ID must be a valid UUID.")
+	if !ok {
+		return
+	}
+
+	metadata, err := h.service.GetPublishedFileMetadata(r.Context(), noteID)
+	if err != nil {
+		h.handleReadError(w, err, "failed to get note file metadata")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, metadata)
+}

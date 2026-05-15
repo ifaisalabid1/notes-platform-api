@@ -68,13 +68,14 @@ func main() {
 	}
 
 	router := apphttp.NewRouter(apphttp.RouterDeps{
-		Database:       db,
-		DBPool:         db.Pool,
-		Logger:         logr,
-		SessionManager: sessionManager,
-		OwnerEmail:     cfg.OwnerEmail,
-		ObjectStorage:  objectStorage,
-		UploadMaxBytes: cfg.UploadMaxBytes,
+		Database:        db,
+		DBPool:          db.Pool,
+		Logger:          logr,
+		SessionManager:  sessionManager,
+		OwnerEmail:      cfg.OwnerEmail,
+		ObjectStorage:   objectStorage,
+		UploadMaxBytes:  cfg.UploadMaxBytes,
+		WorkerAPISecret: cfg.WorkerAPISecret,
 	})
 
 	server := apphttp.NewServer(cfg.HTTPPort, router, logr)

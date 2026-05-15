@@ -247,3 +247,7 @@ func ParseBoolFormValue(value string) bool {
 
 	return parsed
 }
+
+func (s *Service) GetPublishedFileMetadata(ctx context.Context, id uuid.UUID) (FileMetadata, error) {
+	return s.repository.GetPublishedFileMetadata(ctx, id)
+}

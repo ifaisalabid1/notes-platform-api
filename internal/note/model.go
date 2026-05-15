@@ -25,6 +25,15 @@ type Note struct {
 	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
+type FileMetadata struct {
+	NoteID           uuid.UUID `json:"note_id"`
+	Title            string    `json:"title"`
+	OriginalFileName string    `json:"original_file_name"`
+	StoredObjectKey  string    `json:"stored_object_key"`
+	FileContentType  string    `json:"file_content_type"`
+	FileSizeBytes    int64     `json:"file_size_bytes"`
+}
+
 type CreateNoteInput struct {
 	Title            string  `json:"title"`
 	Slug             string  `json:"slug"`
