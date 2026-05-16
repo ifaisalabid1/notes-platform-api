@@ -32,16 +32,23 @@ var (
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Service struct {
-	repository     *Repository
-	objectStorage  storage.ObjectStorage
-	uploadMaxBytes int64
+	repository        *Repository
+	objectStorage     storage.ObjectStorage
+	uploadMaxBytes    int64
+	publicFileBaseURL string
 }
 
-func NewService(repository *Repository, objectStorage storage.ObjectStorage, uploadMaxBytes int64) *Service {
+func NewService(
+	repository *Repository,
+	objectStorage storage.ObjectStorage,
+	uploadMaxBytes int64,
+	publicFileBaseURL string,
+) *Service {
 	return &Service{
-		repository:     repository,
-		objectStorage:  objectStorage,
-		uploadMaxBytes: uploadMaxBytes,
+		repository:        repository,
+		objectStorage:     objectStorage,
+		uploadMaxBytes:    uploadMaxBytes,
+		publicFileBaseURL: strings.TrimRight(publicFileBaseURL, "/"),
 	}
 }
 
@@ -145,16 +152,32 @@ func (s *Service) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID) (
 	return s.repository.ListAdminByChapter(ctx, chapterID)
 }
 
-func (s *Service) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID) ([]Note, error) {
-	return s.repository.ListPublicByChapter(ctx, chapterID)
+func (s *Service) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID) ([]PublicNote, error) {
+	notes, err := s.repository.ListPublicByChapter(ctx, chapterID)
+	if err != nil {
+		return nil, err
+	}
+
+	publicNotes := make([]PublicNote, 0, len(notes))
+
+	for _, n := range notes {
+		publicNotes = append(publicNotes, s.toPublicNote(n))
+	}
+
+	return publicNotes, nil
 }
 
 func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (Note, error) {
 	return s.repository.GetByID(ctx, id)
 }
 
-func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (Note, error) {
-	return s.repository.GetPublishedByID(ctx, id)
+func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (PublicNote, error) {
+	n, err := s.repository.GetPublishedByID(ctx, id)
+	if err != nil {
+		return PublicNote{}, err
+	}
+
+	return s.toPublicNote(n), nil
 }
 
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateNoteInput) (Note, error) {
@@ -250,4 +273,28 @@ func ParseBoolFormValue(value string) bool {
 
 func (s *Service) GetPublishedFileMetadata(ctx context.Context, id uuid.UUID) (FileMetadata, error) {
 	return s.repository.GetPublishedFileMetadata(ctx, id)
+}
+
+func (s *Service) toPublicNote(n Note) PublicNote {
+	return PublicNote{
+		ID:               n.ID,
+		ChapterID:        n.ChapterID,
+		Title:            n.Title,
+		Slug:             n.Slug,
+		Description:      n.Description,
+		OriginalFileName: n.OriginalFileName,
+		FileURL:          s.buildPublicFileURL(n.ID),
+		IsPublished:      n.IsPublished,
+		SortOrder:        n.SortOrder,
+		CreatedAt:        n.CreatedAt,
+		UpdatedAt:        n.UpdatedAt,
+	}
+}
+
+func (s *Service) buildPublicFileURL(noteID uuid.UUID) string {
+	if s.publicFileBaseURL == "" {
+		return "/notes/" + noteID.String()
+	}
+
+	return s.publicFileBaseURL + "/notes/" + noteID.String()
 }

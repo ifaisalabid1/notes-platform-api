@@ -25,7 +25,8 @@ type Config struct {
 	R2SecretAccessKey string
 	R2BucketName      string
 
-	WorkerAPISecret string
+	WorkerAPISecret   string
+	PublicFileBaseURL string
 }
 
 func Load() (Config, error) {
@@ -44,7 +45,8 @@ func Load() (Config, error) {
 		R2SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
 		R2BucketName:      os.Getenv("R2_BUCKET_NAME"),
 
-		WorkerAPISecret: os.Getenv("WORKER_API_SECRET"),
+		WorkerAPISecret:   os.Getenv("WORKER_API_SECRET"),
+		PublicFileBaseURL: getEnv("PUBLIC_FILE_BASE_URL", "http://localhost:8787"),
 	}
 
 	cookieSecure, err := strconv.ParseBool(getEnv("COOKIE_SECURE", "false"))

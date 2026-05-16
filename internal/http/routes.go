@@ -28,8 +28,9 @@ type RouterDeps struct {
 	SessionManager *scs.SessionManager
 	OwnerEmail     string
 
-	ObjectStorage  storage.ObjectStorage
-	UploadMaxBytes int64
+	ObjectStorage     storage.ObjectStorage
+	UploadMaxBytes    int64
+	PublicFileBaseURL string
 
 	WorkerAPISecret string
 }
@@ -68,7 +69,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 	chapterHandler := chapter.NewHandler(chapterService, deps.Logger)
 
 	noteRepository := note.NewRepository(deps.DBPool)
-	noteService := note.NewService(noteRepository, deps.ObjectStorage, deps.UploadMaxBytes)
+	noteService := note.NewService(
+		noteRepository,
+		deps.ObjectStorage,
+		deps.UploadMaxBytes,
+		deps.PublicFileBaseURL,
+	)
 	noteHandler := note.NewHandler(noteService, deps.Logger, deps.UploadMaxBytes)
 
 	r.Get("/healthz", healthHandler.Check)

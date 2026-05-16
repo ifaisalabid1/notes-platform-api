@@ -25,6 +25,20 @@ type Note struct {
 	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
+type PublicNote struct {
+	ID               uuid.UUID `json:"id"`
+	ChapterID        uuid.UUID `json:"chapter_id"`
+	Title            string    `json:"title"`
+	Slug             string    `json:"slug"`
+	Description      *string   `json:"description"`
+	OriginalFileName string    `json:"original_file_name"`
+	FileURL          string    `json:"file_url"`
+	IsPublished      bool      `json:"is_published"`
+	SortOrder        int       `json:"sort_order"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 type FileMetadata struct {
 	NoteID           uuid.UUID `json:"note_id"`
 	Title            string    `json:"title"`
