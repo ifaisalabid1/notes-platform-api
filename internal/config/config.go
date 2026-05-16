@@ -27,6 +27,9 @@ type Config struct {
 
 	WorkerAPISecret   string
 	PublicFileBaseURL string
+
+	WatermarkEnabled   bool
+	WatermarkBrandText string
 }
 
 func Load() (Config, error) {
@@ -47,6 +50,8 @@ func Load() (Config, error) {
 
 		WorkerAPISecret:   os.Getenv("WORKER_API_SECRET"),
 		PublicFileBaseURL: getEnv("PUBLIC_FILE_BASE_URL", "http://localhost:8787"),
+
+		WatermarkBrandText: getEnv("WATERMARK_BRAND_TEXT", "Notes Platform"),
 	}
 
 	cookieSecure, err := strconv.ParseBool(getEnv("COOKIE_SECURE", "false"))
@@ -61,6 +66,12 @@ func Load() (Config, error) {
 	}
 	cfg.UploadMaxBytes = uploadMaxBytes
 
+	watermarkEnabled, err := strconv.ParseBool(getEnv("WATERMARK_ENABLED", "true"))
+	if err != nil {
+		return Config{}, errors.New("WATERMARK_ENABLED must be true or false")
+	}
+	cfg.WatermarkEnabled = watermarkEnabled
+
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL is required")
 	}
@@ -71,6 +82,10 @@ func Load() (Config, error) {
 
 	if cfg.WorkerAPISecret == "" {
 		return Config{}, errors.New("WORKER_API_SECRET is required")
+	}
+
+	if cfg.WatermarkEnabled && cfg.WatermarkBrandText == "" {
+		return Config{}, errors.New("WATERMARK_BRAND_TEXT is required when WATERMARK_ENABLED=true")
 	}
 
 	switch cfg.StorageDriver {

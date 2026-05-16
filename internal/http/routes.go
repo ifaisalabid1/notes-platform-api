@@ -19,6 +19,7 @@ import (
 	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
 	"github.com/ifaisalabid1/notes-platform-api/internal/subject"
 	"github.com/ifaisalabid1/notes-platform-api/internal/unit"
+	"github.com/ifaisalabid1/notes-platform-api/internal/watermark"
 )
 
 type RouterDeps struct {
@@ -28,9 +29,10 @@ type RouterDeps struct {
 	SessionManager *scs.SessionManager
 	OwnerEmail     string
 
-	ObjectStorage     storage.ObjectStorage
-	UploadMaxBytes    int64
-	PublicFileBaseURL string
+	ObjectStorage      storage.ObjectStorage
+	WatermarkProcessor watermark.Processor
+	UploadMaxBytes     int64
+	PublicFileBaseURL  string
 
 	WorkerAPISecret string
 }
@@ -72,6 +74,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 	noteService := note.NewService(
 		noteRepository,
 		deps.ObjectStorage,
+		deps.WatermarkProcessor,
 		deps.UploadMaxBytes,
 		deps.PublicFileBaseURL,
 	)

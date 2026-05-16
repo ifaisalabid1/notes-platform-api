@@ -19,6 +19,7 @@ import (
 	"github.com/ifaisalabid1/notes-platform-api/internal/platform/database"
 	"github.com/ifaisalabid1/notes-platform-api/internal/platform/logger"
 	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
+	"github.com/ifaisalabid1/notes-platform-api/internal/watermark"
 )
 
 func main() {
@@ -67,16 +68,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	watermarkProcessor := watermark.NewPDFCPUProcessor(
+		cfg.WatermarkEnabled,
+		cfg.WatermarkBrandText,
+	)
+
 	router := apphttp.NewRouter(apphttp.RouterDeps{
-		Database:          db,
-		DBPool:            db.Pool,
-		Logger:            logr,
-		SessionManager:    sessionManager,
-		OwnerEmail:        cfg.OwnerEmail,
-		ObjectStorage:     objectStorage,
-		UploadMaxBytes:    cfg.UploadMaxBytes,
-		PublicFileBaseURL: cfg.PublicFileBaseURL,
-		WorkerAPISecret:   cfg.WorkerAPISecret,
+		Database:           db,
+		DBPool:             db.Pool,
+		Logger:             logr,
+		SessionManager:     sessionManager,
+		OwnerEmail:         cfg.OwnerEmail,
+		ObjectStorage:      objectStorage,
+		WatermarkProcessor: watermarkProcessor,
+		UploadMaxBytes:     cfg.UploadMaxBytes,
+		PublicFileBaseURL:  cfg.PublicFileBaseURL,
+		WorkerAPISecret:    cfg.WorkerAPISecret,
 	})
 
 	server := apphttp.NewServer(cfg.HTTPPort, router, logr)

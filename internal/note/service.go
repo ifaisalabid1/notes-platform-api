@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
+	"github.com/ifaisalabid1/notes-platform-api/internal/watermark"
 )
 
 var (
@@ -32,23 +33,26 @@ var (
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Service struct {
-	repository        *Repository
-	objectStorage     storage.ObjectStorage
-	uploadMaxBytes    int64
-	publicFileBaseURL string
+	repository         *Repository
+	objectStorage      storage.ObjectStorage
+	watermarkProcessor watermark.Processor
+	uploadMaxBytes     int64
+	publicFileBaseURL  string
 }
 
 func NewService(
 	repository *Repository,
 	objectStorage storage.ObjectStorage,
+	watermarkProcessor watermark.Processor,
 	uploadMaxBytes int64,
 	publicFileBaseURL string,
 ) *Service {
 	return &Service{
-		repository:        repository,
-		objectStorage:     objectStorage,
-		uploadMaxBytes:    uploadMaxBytes,
-		publicFileBaseURL: strings.TrimRight(publicFileBaseURL, "/"),
+		repository:         repository,
+		objectStorage:      objectStorage,
+		watermarkProcessor: watermarkProcessor,
+		uploadMaxBytes:     uploadMaxBytes,
+		publicFileBaseURL:  strings.TrimRight(publicFileBaseURL, "/"),
 	}
 }
 
@@ -115,12 +119,26 @@ func (s *Service) Upload(ctx context.Context, chapterID uuid.UUID, input UploadN
 		return Note{}, fmt.Errorf("rewind uploaded file: %w", err)
 	}
 
+	processedFile, err := s.watermarkProcessor.Process(ctx, watermark.ProcessInput{
+		FileName:    input.FileHeader.Filename,
+		ContentType: contentType,
+		Body:        input.File,
+	})
+	if err != nil {
+		return Note{}, err
+	}
+	defer processedFile.Cleanup()
+
+	if _, err := processedFile.Body.Seek(0, io.SeekStart); err != nil {
+		return Note{}, fmt.Errorf("rewind processed file: %w", err)
+	}
+
 	objectKey := buildObjectKey(chapterID, input.FileHeader.Filename)
 
 	putResult, err := s.objectStorage.PutObject(ctx, storage.PutObjectInput{
 		Key:         objectKey,
-		Body:        input.File,
-		ContentType: contentType,
+		Body:        processedFile.Body,
+		ContentType: processedFile.ContentType,
 	})
 	if err != nil {
 		return Note{}, fmt.Errorf("store uploaded file: %w", err)
@@ -132,9 +150,9 @@ func (s *Service) Upload(ctx context.Context, chapterID uuid.UUID, input UploadN
 		Description:      input.Description,
 		OriginalFileName: filepath.Base(input.FileHeader.Filename),
 		StoredObjectKey:  putResult.Key,
-		FileContentType:  contentType,
+		FileContentType:  processedFile.ContentType,
 		FileSizeBytes:    putResult.SizeBytes,
-		IsWatermarked:    false,
+		IsWatermarked:    processedFile.IsWatermarked,
 		IsPublished:      input.IsPublished,
 		SortOrder:        input.SortOrder,
 	}
