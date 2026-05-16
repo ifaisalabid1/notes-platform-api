@@ -210,7 +210,20 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateNoteInpu
 }
 
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repository.Delete(ctx, id)
+	existingNote, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repository.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	if err := s.objectStorage.DeleteObject(ctx, existingNote.StoredObjectKey); err != nil {
+		return fmt.Errorf("delete note object from storage: %w", err)
+	}
+
+	return nil
 }
 
 func validateTitleAndSlug(title string, slug string) error {
