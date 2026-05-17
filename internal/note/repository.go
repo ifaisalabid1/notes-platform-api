@@ -552,50 +552,74 @@ func (r *Repository) GetPublishedFileMetadata(ctx context.Context, id uuid.UUID)
 	return metadata, nil
 }
 
-func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (ListNotesResult, error) {
+func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (ListAdminNotesResult, error) {
 	const countQuery = `
 		SELECT COUNT(*)
-		FROM notes
+		FROM notes n
+		JOIN chapters c ON c.id = n.chapter_id
+		JOIN units u ON u.id = c.unit_id
+		JOIN subjects s ON s.id = u.subject_id
+		JOIN semesters sem ON sem.id = s.semester_id
 		WHERE (
 			$1 = ''
-			OR title ILIKE '%' || $1 || '%'
-			OR slug ILIKE '%' || $1 || '%'
-			OR original_file_name ILIKE '%' || $1 || '%'
+			OR n.title ILIKE '%' || $1 || '%'
+			OR n.slug ILIKE '%' || $1 || '%'
+			OR n.original_file_name ILIKE '%' || $1 || '%'
+			OR c.title ILIKE '%' || $1 || '%'
+			OR u.title ILIKE '%' || $1 || '%'
+			OR s.title ILIKE '%' || $1 || '%'
+			OR sem.title ILIKE '%' || $1 || '%'
 		);
 	`
 
 	const listQuery = `
 		SELECT
-			id,
-			chapter_id,
-			title,
-			slug,
-			description,
-			original_file_name,
-			stored_object_key,
-			file_content_type,
-			file_size_bytes,
-			is_watermarked,
-			is_published,
-			sort_order,
-			uploaded_by,
-			created_at,
-			updated_at
-		FROM notes
+			n.id,
+			n.chapter_id,
+			n.title,
+			n.slug,
+			n.description,
+			n.original_file_name,
+			n.stored_object_key,
+			n.file_content_type,
+			n.file_size_bytes,
+			n.is_watermarked,
+			n.is_published,
+			n.sort_order,
+			n.uploaded_by,
+			n.created_at,
+			n.updated_at,
+
+			c.title AS chapter_title,
+			u.id AS unit_id,
+			u.title AS unit_title,
+			s.id AS subject_id,
+			s.title AS subject_title,
+			sem.id AS semester_id,
+			sem.title AS semester_title
+		FROM notes n
+		JOIN chapters c ON c.id = n.chapter_id
+		JOIN units u ON u.id = c.unit_id
+		JOIN subjects s ON s.id = u.subject_id
+		JOIN semesters sem ON sem.id = s.semester_id
 		WHERE (
 			$1 = ''
-			OR title ILIKE '%' || $1 || '%'
-			OR slug ILIKE '%' || $1 || '%'
-			OR original_file_name ILIKE '%' || $1 || '%'
+			OR n.title ILIKE '%' || $1 || '%'
+			OR n.slug ILIKE '%' || $1 || '%'
+			OR n.original_file_name ILIKE '%' || $1 || '%'
+			OR c.title ILIKE '%' || $1 || '%'
+			OR u.title ILIKE '%' || $1 || '%'
+			OR s.title ILIKE '%' || $1 || '%'
+			OR sem.title ILIKE '%' || $1 || '%'
 		)
-		ORDER BY created_at DESC
+		ORDER BY n.created_at DESC
 		LIMIT $2 OFFSET $3;
 	`
 
 	var totalItems int
 
 	if err := r.db.QueryRow(ctx, countQuery, params.Search).Scan(&totalItems); err != nil {
-		return ListNotesResult{}, fmt.Errorf("count admin notes: %w", err)
+		return ListAdminNotesResult{}, fmt.Errorf("count admin notes: %w", err)
 	}
 
 	rows, err := r.db.Query(
@@ -606,14 +630,14 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 		params.Offset(),
 	)
 	if err != nil {
-		return ListNotesResult{}, fmt.Errorf("list admin notes: %w", err)
+		return ListAdminNotesResult{}, fmt.Errorf("list admin notes: %w", err)
 	}
 	defer rows.Close()
 
-	notes := make([]Note, 0)
+	notes := make([]AdminNoteListItem, 0)
 
 	for rows.Next() {
-		var note Note
+		var note AdminNoteListItem
 
 		if err := rows.Scan(
 			&note.ID,
@@ -631,18 +655,25 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 			&note.UploadedBy,
 			&note.CreatedAt,
 			&note.UpdatedAt,
+			&note.ChapterTitle,
+			&note.UnitID,
+			&note.UnitTitle,
+			&note.SubjectID,
+			&note.SubjectTitle,
+			&note.SemesterID,
+			&note.SemesterTitle,
 		); err != nil {
-			return ListNotesResult{}, fmt.Errorf("scan admin note: %w", err)
+			return ListAdminNotesResult{}, fmt.Errorf("scan admin note: %w", err)
 		}
 
 		notes = append(notes, note)
 	}
 
 	if err := rows.Err(); err != nil {
-		return ListNotesResult{}, fmt.Errorf("iterate admin notes: %w", err)
+		return ListAdminNotesResult{}, fmt.Errorf("iterate admin notes: %w", err)
 	}
 
-	return ListNotesResult{
+	return ListAdminNotesResult{
 		Notes:      notes,
 		TotalItems: totalItems,
 	}, nil
