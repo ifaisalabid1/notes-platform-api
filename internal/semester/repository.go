@@ -327,3 +327,111 @@ func isUniqueViolation(err error) bool {
 
 	return false
 }
+
+func (r *Repository) ListAdminWithAudit(ctx context.Context) ([]AdminSemester, error) {
+	const query = `
+		SELECT
+			s.id,
+			s.title,
+			s.slug,
+			s.description,
+			s.sort_order,
+			s.is_published,
+			s.created_by,
+			created_admin.display_name AS created_by_name,
+			s.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			s.created_at,
+			s.updated_at
+		FROM semesters s
+		LEFT JOIN admins created_admin ON created_admin.id = s.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = s.updated_by
+		ORDER BY s.sort_order ASC, s.created_at DESC;
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list admin semesters with audit: %w", err)
+	}
+	defer rows.Close()
+
+	semesters := make([]AdminSemester, 0)
+
+	for rows.Next() {
+		var semester AdminSemester
+
+		if err := rows.Scan(
+			&semester.ID,
+			&semester.Title,
+			&semester.Slug,
+			&semester.Description,
+			&semester.SortOrder,
+			&semester.IsPublished,
+			&semester.CreatedBy,
+			&semester.CreatedByName,
+			&semester.UpdatedBy,
+			&semester.UpdatedByName,
+			&semester.CreatedAt,
+			&semester.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan admin semester: %w", err)
+		}
+
+		semesters = append(semesters, semester)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate admin semesters: %w", err)
+	}
+
+	return semesters, nil
+}
+
+func (r *Repository) GetAdminWithAuditByID(ctx context.Context, id uuid.UUID) (AdminSemester, error) {
+	const query = `
+		SELECT
+			s.id,
+			s.title,
+			s.slug,
+			s.description,
+			s.sort_order,
+			s.is_published,
+			s.created_by,
+			created_admin.display_name AS created_by_name,
+			s.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			s.created_at,
+			s.updated_at
+		FROM semesters s
+		LEFT JOIN admins created_admin ON created_admin.id = s.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = s.updated_by
+		WHERE s.id = $1;
+	`
+
+	var semester AdminSemester
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&semester.ID,
+		&semester.Title,
+		&semester.Slug,
+		&semester.Description,
+		&semester.SortOrder,
+		&semester.IsPublished,
+		&semester.CreatedBy,
+		&semester.CreatedByName,
+		&semester.UpdatedBy,
+		&semester.UpdatedByName,
+		&semester.CreatedAt,
+		&semester.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AdminSemester{}, ErrSemesterNotFound
+		}
+
+		return AdminSemester{}, fmt.Errorf("get admin semester with audit: %w", err)
+	}
+
+	return semester, nil
+}

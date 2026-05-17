@@ -43,16 +43,16 @@ func (s *Service) Create(ctx context.Context, semesterID uuid.UUID, input Create
 	return s.repository.Create(ctx, semesterID, input)
 }
 
-func (s *Service) ListAdminBySemester(ctx context.Context, semesterID uuid.UUID) ([]Subject, error) {
-	return s.repository.ListAdminBySemester(ctx, semesterID)
+func (s *Service) ListAdminBySemester(ctx context.Context, semesterID uuid.UUID) ([]AdminSubject, error) {
+	return s.repository.ListAdminBySemesterWithAudit(ctx, semesterID)
 }
 
 func (s *Service) ListPublicBySemester(ctx context.Context, semesterID uuid.UUID) ([]Subject, error) {
 	return s.repository.ListPublicBySemester(ctx, semesterID)
 }
 
-func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (Subject, error) {
-	return s.repository.GetByID(ctx, id)
+func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (AdminSubject, error) {
+	return s.repository.GetAdminWithAuditByID(ctx, id)
 }
 
 func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (Subject, error) {

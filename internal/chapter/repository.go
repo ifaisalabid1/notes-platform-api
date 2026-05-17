@@ -354,3 +354,116 @@ func isForeignKeyViolation(err error) bool {
 
 	return false
 }
+
+func (r *Repository) ListAdminByUnitWithAudit(ctx context.Context, unitID uuid.UUID) ([]AdminChapter, error) {
+	const query = `
+		SELECT
+			c.id,
+			c.unit_id,
+			c.title,
+			c.slug,
+			c.description,
+			c.sort_order,
+			c.is_published,
+			c.created_by,
+			created_admin.display_name AS created_by_name,
+			c.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			c.created_at,
+			c.updated_at
+		FROM chapters c
+		LEFT JOIN admins created_admin ON created_admin.id = c.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = c.updated_by
+		WHERE c.unit_id = $1
+		ORDER BY c.sort_order ASC, c.created_at DESC;
+	`
+
+	rows, err := r.db.Query(ctx, query, unitID)
+	if err != nil {
+		return nil, fmt.Errorf("list admin chapters with audit: %w", err)
+	}
+	defer rows.Close()
+
+	chapters := make([]AdminChapter, 0)
+
+	for rows.Next() {
+		var chapter AdminChapter
+
+		if err := rows.Scan(
+			&chapter.ID,
+			&chapter.UnitID,
+			&chapter.Title,
+			&chapter.Slug,
+			&chapter.Description,
+			&chapter.SortOrder,
+			&chapter.IsPublished,
+			&chapter.CreatedBy,
+			&chapter.CreatedByName,
+			&chapter.UpdatedBy,
+			&chapter.UpdatedByName,
+			&chapter.CreatedAt,
+			&chapter.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan admin chapter: %w", err)
+		}
+
+		chapters = append(chapters, chapter)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate admin chapters: %w", err)
+	}
+
+	return chapters, nil
+}
+
+func (r *Repository) GetAdminWithAuditByID(ctx context.Context, id uuid.UUID) (AdminChapter, error) {
+	const query = `
+		SELECT
+			c.id,
+			c.unit_id,
+			c.title,
+			c.slug,
+			c.description,
+			c.sort_order,
+			c.is_published,
+			c.created_by,
+			created_admin.display_name AS created_by_name,
+			c.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			c.created_at,
+			c.updated_at
+		FROM chapters c
+		LEFT JOIN admins created_admin ON created_admin.id = c.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = c.updated_by
+		WHERE c.id = $1;
+	`
+
+	var chapter AdminChapter
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&chapter.ID,
+		&chapter.UnitID,
+		&chapter.Title,
+		&chapter.Slug,
+		&chapter.Description,
+		&chapter.SortOrder,
+		&chapter.IsPublished,
+		&chapter.CreatedBy,
+		&chapter.CreatedByName,
+		&chapter.UpdatedBy,
+		&chapter.UpdatedByName,
+		&chapter.CreatedAt,
+		&chapter.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AdminChapter{}, ErrChapterNotFound
+		}
+
+		return AdminChapter{}, fmt.Errorf("get admin chapter with audit: %w", err)
+	}
+
+	return chapter, nil
+}

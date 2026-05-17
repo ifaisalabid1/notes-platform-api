@@ -354,3 +354,116 @@ func isForeignKeyViolation(err error) bool {
 
 	return false
 }
+
+func (r *Repository) ListAdminBySubjectWithAudit(ctx context.Context, subjectID uuid.UUID) ([]AdminUnit, error) {
+	const query = `
+		SELECT
+			u.id,
+			u.subject_id,
+			u.title,
+			u.slug,
+			u.description,
+			u.sort_order,
+			u.is_published,
+			u.created_by,
+			created_admin.display_name AS created_by_name,
+			u.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			u.created_at,
+			u.updated_at
+		FROM units u
+		LEFT JOIN admins created_admin ON created_admin.id = u.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = u.updated_by
+		WHERE u.subject_id = $1
+		ORDER BY u.sort_order ASC, u.created_at DESC;
+	`
+
+	rows, err := r.db.Query(ctx, query, subjectID)
+	if err != nil {
+		return nil, fmt.Errorf("list admin units with audit: %w", err)
+	}
+	defer rows.Close()
+
+	units := make([]AdminUnit, 0)
+
+	for rows.Next() {
+		var unit AdminUnit
+
+		if err := rows.Scan(
+			&unit.ID,
+			&unit.SubjectID,
+			&unit.Title,
+			&unit.Slug,
+			&unit.Description,
+			&unit.SortOrder,
+			&unit.IsPublished,
+			&unit.CreatedBy,
+			&unit.CreatedByName,
+			&unit.UpdatedBy,
+			&unit.UpdatedByName,
+			&unit.CreatedAt,
+			&unit.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan admin unit: %w", err)
+		}
+
+		units = append(units, unit)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate admin units: %w", err)
+	}
+
+	return units, nil
+}
+
+func (r *Repository) GetAdminWithAuditByID(ctx context.Context, id uuid.UUID) (AdminUnit, error) {
+	const query = `
+		SELECT
+			u.id,
+			u.subject_id,
+			u.title,
+			u.slug,
+			u.description,
+			u.sort_order,
+			u.is_published,
+			u.created_by,
+			created_admin.display_name AS created_by_name,
+			u.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			u.created_at,
+			u.updated_at
+		FROM units u
+		LEFT JOIN admins created_admin ON created_admin.id = u.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = u.updated_by
+		WHERE u.id = $1;
+	`
+
+	var unit AdminUnit
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&unit.ID,
+		&unit.SubjectID,
+		&unit.Title,
+		&unit.Slug,
+		&unit.Description,
+		&unit.SortOrder,
+		&unit.IsPublished,
+		&unit.CreatedBy,
+		&unit.CreatedByName,
+		&unit.UpdatedBy,
+		&unit.UpdatedByName,
+		&unit.CreatedAt,
+		&unit.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AdminUnit{}, ErrUnitNotFound
+		}
+
+		return AdminUnit{}, fmt.Errorf("get admin unit with audit: %w", err)
+	}
+
+	return unit, nil
+}

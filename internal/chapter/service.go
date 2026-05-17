@@ -43,16 +43,16 @@ func (s *Service) Create(ctx context.Context, unitID uuid.UUID, input CreateChap
 	return s.repository.Create(ctx, unitID, input)
 }
 
-func (s *Service) ListAdminByUnit(ctx context.Context, unitID uuid.UUID) ([]Chapter, error) {
-	return s.repository.ListAdminByUnit(ctx, unitID)
+func (s *Service) ListAdminByUnit(ctx context.Context, unitID uuid.UUID) ([]AdminChapter, error) {
+	return s.repository.ListAdminByUnitWithAudit(ctx, unitID)
 }
 
 func (s *Service) ListPublicByUnit(ctx context.Context, unitID uuid.UUID) ([]Chapter, error) {
 	return s.repository.ListPublicByUnit(ctx, unitID)
 }
 
-func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (Chapter, error) {
-	return s.repository.GetByID(ctx, id)
+func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (AdminChapter, error) {
+	return s.repository.GetAdminWithAuditByID(ctx, id)
 }
 
 func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (Chapter, error) {

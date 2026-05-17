@@ -354,3 +354,116 @@ func isForeignKeyViolation(err error) bool {
 
 	return false
 }
+
+func (r *Repository) ListAdminBySemesterWithAudit(ctx context.Context, semesterID uuid.UUID) ([]AdminSubject, error) {
+	const query = `
+		SELECT
+			s.id,
+			s.semester_id,
+			s.title,
+			s.slug,
+			s.description,
+			s.sort_order,
+			s.is_published,
+			s.created_by,
+			created_admin.display_name AS created_by_name,
+			s.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			s.created_at,
+			s.updated_at
+		FROM subjects s
+		LEFT JOIN admins created_admin ON created_admin.id = s.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = s.updated_by
+		WHERE s.semester_id = $1
+		ORDER BY s.sort_order ASC, s.created_at DESC;
+	`
+
+	rows, err := r.db.Query(ctx, query, semesterID)
+	if err != nil {
+		return nil, fmt.Errorf("list admin subjects with audit: %w", err)
+	}
+	defer rows.Close()
+
+	subjects := make([]AdminSubject, 0)
+
+	for rows.Next() {
+		var subject AdminSubject
+
+		if err := rows.Scan(
+			&subject.ID,
+			&subject.SemesterID,
+			&subject.Title,
+			&subject.Slug,
+			&subject.Description,
+			&subject.SortOrder,
+			&subject.IsPublished,
+			&subject.CreatedBy,
+			&subject.CreatedByName,
+			&subject.UpdatedBy,
+			&subject.UpdatedByName,
+			&subject.CreatedAt,
+			&subject.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan admin subject: %w", err)
+		}
+
+		subjects = append(subjects, subject)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate admin subjects: %w", err)
+	}
+
+	return subjects, nil
+}
+
+func (r *Repository) GetAdminWithAuditByID(ctx context.Context, id uuid.UUID) (AdminSubject, error) {
+	const query = `
+		SELECT
+			s.id,
+			s.semester_id,
+			s.title,
+			s.slug,
+			s.description,
+			s.sort_order,
+			s.is_published,
+			s.created_by,
+			created_admin.display_name AS created_by_name,
+			s.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			s.created_at,
+			s.updated_at
+		FROM subjects s
+		LEFT JOIN admins created_admin ON created_admin.id = s.created_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = s.updated_by
+		WHERE s.id = $1;
+	`
+
+	var subject AdminSubject
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&subject.ID,
+		&subject.SemesterID,
+		&subject.Title,
+		&subject.Slug,
+		&subject.Description,
+		&subject.SortOrder,
+		&subject.IsPublished,
+		&subject.CreatedBy,
+		&subject.CreatedByName,
+		&subject.UpdatedBy,
+		&subject.UpdatedByName,
+		&subject.CreatedAt,
+		&subject.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AdminSubject{}, ErrSubjectNotFound
+		}
+
+		return AdminSubject{}, fmt.Errorf("get admin subject with audit: %w", err)
+	}
+
+	return subject, nil
+}
