@@ -1,7 +1,10 @@
-.PHONY: run dev db-up db-down db-reset migrate-up migrate-down tidy
+.PHONY: run dev db-up db-down db-reset migrate-up migrate-down tidy docker-build docker-run
 
 include .env
 export
+
+APP_NAME=notes-platform-api
+DOCKER_IMAGE=$(APP_NAME):local
 
 run:
 	go run ./cmd/api
@@ -27,3 +30,14 @@ migrate-down:
 
 tidy:
 	go mod tidy
+
+docker-build:
+	docker build -t $(DOCKER_IMAGE) .
+
+docker-run:
+	docker run --rm \
+		--name $(APP_NAME) \
+		-p 8080:8080 \
+		--env-file .env \
+		-e PORT=8080 \
+		$(DOCKER_IMAGE)

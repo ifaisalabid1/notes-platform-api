@@ -35,7 +35,7 @@ type Config struct {
 func Load() (Config, error) {
 	cfg := Config{
 		AppEnv:            getEnv("APP_ENV", "development"),
-		HTTPPort:          getEnv("HTTP_PORT", "8080"),
+		HTTPPort:          getEnv("PORT", getEnv("HTTP_PORT", "8080")),
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		OwnerEmail:        os.Getenv("OWNER_EMAIL"),
 		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "notes_platform_session"),
