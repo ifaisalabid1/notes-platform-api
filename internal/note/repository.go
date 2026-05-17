@@ -579,6 +579,8 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 		JOIN units u ON u.id = c.unit_id
 		JOIN subjects s ON s.id = u.subject_id
 		JOIN semesters sem ON sem.id = s.semester_id
+		LEFT JOIN admins uploaded_admin ON uploaded_admin.id = n.uploaded_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = n.updated_by
 		WHERE (
 			$1 = ''
 			OR n.title ILIKE '%' || $1 || '%'
@@ -588,6 +590,8 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 			OR u.title ILIKE '%' || $1 || '%'
 			OR s.title ILIKE '%' || $1 || '%'
 			OR sem.title ILIKE '%' || $1 || '%'
+			OR uploaded_admin.display_name ILIKE '%' || $1 || '%'
+			OR updated_admin.display_name ILIKE '%' || $1 || '%'
 		);
 	`
 
@@ -606,7 +610,9 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 			n.is_published,
 			n.sort_order,
 			n.uploaded_by,
+			uploaded_admin.display_name AS uploaded_by_name,
 			n.updated_by,
+			updated_admin.display_name AS updated_by_name,
 			n.created_at,
 			n.updated_at,
 
@@ -622,6 +628,8 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 		JOIN units u ON u.id = c.unit_id
 		JOIN subjects s ON s.id = u.subject_id
 		JOIN semesters sem ON sem.id = s.semester_id
+		LEFT JOIN admins uploaded_admin ON uploaded_admin.id = n.uploaded_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = n.updated_by
 		WHERE (
 			$1 = ''
 			OR n.title ILIKE '%' || $1 || '%'
@@ -673,7 +681,9 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 			&note.IsPublished,
 			&note.SortOrder,
 			&note.UploadedBy,
+			&note.UploadedByName,
 			&note.UpdatedBy,
+			&note.UpdatedByName,
 			&note.CreatedAt,
 			&note.UpdatedAt,
 			&note.ChapterTitle,

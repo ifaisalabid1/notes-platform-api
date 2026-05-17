@@ -40,7 +40,9 @@ type AdminNoteListItem struct {
 	IsPublished      bool       `json:"is_published"`
 	SortOrder        int        `json:"sort_order"`
 	UploadedBy       *uuid.UUID `json:"uploaded_by"`
+	UploadedByName   *string    `json:"uploaded_by_name"`
 	UpdatedBy        *uuid.UUID `json:"updated_by"`
+	UpdatedByName    *string    `json:"updated_by_name"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 
