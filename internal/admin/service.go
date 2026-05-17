@@ -113,6 +113,14 @@ func (s *Service) CreateAdmin(ctx context.Context, actor Admin, input CreateAdmi
 	return s.repository.CreateAdmin(ctx, input.Email, passwordHash, input.DisplayName, actor.ID)
 }
 
+func (s *Service) ListAdmins(ctx context.Context, actor Admin) ([]Admin, error) {
+	if actor.Role != RoleOwner {
+		return nil, ErrForbidden
+	}
+
+	return s.repository.List(ctx)
+}
+
 func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (Admin, error) {
 	return s.repository.GetByID(ctx, id)
 }

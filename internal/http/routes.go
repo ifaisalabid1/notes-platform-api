@@ -122,6 +122,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Post("/logout", adminHandler.Logout)
 				r.Get("/me", adminHandler.Me)
 
+				r.With(adminMiddleware.RequireOwner).Get("/admins", adminHandler.ListAdmins)
 				r.With(adminMiddleware.RequireOwner).Post("/admins", adminHandler.CreateAdmin)
 
 				r.Get("/semesters", semesterHandler.ListAdmin)

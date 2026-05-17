@@ -255,3 +255,57 @@ func isUniqueViolation(err error) bool {
 
 	return false
 }
+
+func (r *Repository) List(ctx context.Context) ([]Admin, error) {
+	const query = `
+		SELECT
+			id,
+			email,
+			display_name,
+			role,
+			is_active,
+			last_login_at,
+			created_at,
+			updated_at
+		FROM admins
+		ORDER BY
+			CASE role
+				WHEN 'owner' THEN 0
+				ELSE 1
+			END,
+			created_at ASC;
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list admins: %w", err)
+	}
+	defer rows.Close()
+
+	admins := make([]Admin, 0)
+
+	for rows.Next() {
+		var a Admin
+
+		if err := rows.Scan(
+			&a.ID,
+			&a.Email,
+			&a.DisplayName,
+			&a.Role,
+			&a.IsActive,
+			&a.LastLoginAt,
+			&a.CreatedAt,
+			&a.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan admin: %w", err)
+		}
+
+		admins = append(admins, a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate admins: %w", err)
+	}
+
+	return admins, nil
+}

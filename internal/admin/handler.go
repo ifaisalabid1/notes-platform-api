@@ -157,3 +157,27 @@ func (h *Handler) handleAuthWriteError(w http.ResponseWriter, err error, logMess
 		response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
 	}
 }
+
+func (h *Handler) ListAdmins(w http.ResponseWriter, r *http.Request) {
+	currentAdmin, ok := CurrentAdmin(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", "You must be logged in.")
+		return
+	}
+
+	admins, err := h.service.ListAdmins(r.Context(), currentAdmin)
+	if err != nil {
+		if errors.Is(err, ErrForbidden) {
+			response.Error(w, http.StatusForbidden, "forbidden", "Only the owner admin can perform this action.")
+			return
+		}
+
+		h.logger.Error("failed to list admins", slog.Any("error", err))
+		response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{
+		"data": admins,
+	})
+}
