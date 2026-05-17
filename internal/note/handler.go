@@ -140,6 +140,22 @@ func (h *Handler) ListPublicByChapter(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) ListAdmin(w http.ResponseWriter, r *http.Request) {
+	params := pagination.FromRequest(r)
+
+	result, err := h.service.ListAdmin(r.Context(), params)
+	if err != nil {
+		h.logger.Error("failed to list admin notes", slog.Any("error", err))
+		response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{
+		"data":       result.Notes,
+		"pagination": pagination.NewMetadata(params, result.TotalItems),
+	})
+}
+
 func (h *Handler) GetAdminByID(w http.ResponseWriter, r *http.Request) {
 	noteID, ok := parseUUIDParam(w, r, "noteID", "invalid_note_id", "Note ID must be a valid UUID.")
 	if !ok {

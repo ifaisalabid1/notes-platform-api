@@ -150,6 +150,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 
 				r.Get("/chapters/{chapterID}/notes", noteHandler.ListAdminByChapter)
 				r.Post("/chapters/{chapterID}/notes/upload", noteHandler.Upload)
+
+				r.Get("/notes", noteHandler.ListAdmin)
 				r.Get("/notes/{noteID}", noteHandler.GetAdminByID)
 				r.Patch("/notes/{noteID}", noteHandler.Update)
 				r.Delete("/notes/{noteID}", noteHandler.Delete)

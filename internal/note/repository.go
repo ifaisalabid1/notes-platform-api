@@ -113,7 +113,19 @@ func (r *Repository) Create(ctx context.Context, chapterID uuid.UUID, input Crea
 }
 
 func (r *Repository) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID, params pagination.Params) (ListNotesResult, error) {
-	const query = `
+	const countQuery = `
+		SELECT COUNT(*)
+		FROM notes
+		WHERE chapter_id = $1
+		AND (
+			$2 = ''
+			OR title ILIKE '%' || $2 || '%'
+			OR slug ILIKE '%' || $2 || '%'
+			OR original_file_name ILIKE '%' || $2 || '%'
+		);
+	`
+
+	const listQuery = `
 		SELECT
 			id,
 			chapter_id,
@@ -129,8 +141,7 @@ func (r *Repository) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID
 			sort_order,
 			uploaded_by,
 			created_at,
-			updated_at,
-			COUNT(*) OVER()
+			updated_at
 		FROM notes
 		WHERE chapter_id = $1
 		AND (
@@ -143,11 +154,24 @@ func (r *Repository) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID
 		LIMIT $3 OFFSET $4;
 	`
 
-	return r.listPaginated(ctx, query, chapterID, params.Search, params.Limit(), params.Offset())
+	return r.listWithCount(ctx, countQuery, listQuery, chapterID, params)
 }
 
 func (r *Repository) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID, params pagination.Params) (ListNotesResult, error) {
-	const query = `
+	const countQuery = `
+		SELECT COUNT(*)
+		FROM notes
+		WHERE chapter_id = $1
+		AND is_published = true
+		AND (
+			$2 = ''
+			OR title ILIKE '%' || $2 || '%'
+			OR slug ILIKE '%' || $2 || '%'
+			OR original_file_name ILIKE '%' || $2 || '%'
+		);
+	`
+
+	const listQuery = `
 		SELECT
 			id,
 			chapter_id,
@@ -163,8 +187,7 @@ func (r *Repository) ListPublicByChapter(ctx context.Context, chapterID uuid.UUI
 			sort_order,
 			uploaded_by,
 			created_at,
-			updated_at,
-			COUNT(*) OVER()
+			updated_at
 		FROM notes
 		WHERE chapter_id = $1
 		AND is_published = true
@@ -178,7 +201,7 @@ func (r *Repository) ListPublicByChapter(ctx context.Context, chapterID uuid.UUI
 		LIMIT $3 OFFSET $4;
 	`
 
-	return r.listPaginated(ctx, query, chapterID, params.Search, params.Limit(), params.Offset())
+	return r.listWithCount(ctx, countQuery, listQuery, chapterID, params)
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Note, error) {
@@ -365,19 +388,36 @@ func (r *Repository) list(ctx context.Context, query string, args ...any) ([]Not
 	return notes, nil
 }
 
-func (r *Repository) listPaginated(ctx context.Context, query string, args ...any) (ListNotesResult, error) {
-	rows, err := r.db.Query(ctx, query, args...)
+func (r *Repository) listWithCount(
+	ctx context.Context,
+	countQuery string,
+	listQuery string,
+	chapterID uuid.UUID,
+	params pagination.Params,
+) (ListNotesResult, error) {
+	var totalItems int
+
+	if err := r.db.QueryRow(ctx, countQuery, chapterID, params.Search).Scan(&totalItems); err != nil {
+		return ListNotesResult{}, fmt.Errorf("count notes: %w", err)
+	}
+
+	rows, err := r.db.Query(
+		ctx,
+		listQuery,
+		chapterID,
+		params.Search,
+		params.Limit(),
+		params.Offset(),
+	)
 	if err != nil {
 		return ListNotesResult{}, fmt.Errorf("list notes: %w", err)
 	}
 	defer rows.Close()
 
 	notes := make([]Note, 0)
-	totalItems := 0
 
 	for rows.Next() {
 		var note Note
-		var rowTotal int
 
 		if err := rows.Scan(
 			&note.ID,
@@ -395,12 +435,10 @@ func (r *Repository) listPaginated(ctx context.Context, query string, args ...an
 			&note.UploadedBy,
 			&note.CreatedAt,
 			&note.UpdatedAt,
-			&rowTotal,
 		); err != nil {
 			return ListNotesResult{}, fmt.Errorf("scan note: %w", err)
 		}
 
-		totalItems = rowTotal
 		notes = append(notes, note)
 	}
 
@@ -512,4 +550,100 @@ func (r *Repository) GetPublishedFileMetadata(ctx context.Context, id uuid.UUID)
 	}
 
 	return metadata, nil
+}
+
+func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (ListNotesResult, error) {
+	const countQuery = `
+		SELECT COUNT(*)
+		FROM notes
+		WHERE (
+			$1 = ''
+			OR title ILIKE '%' || $1 || '%'
+			OR slug ILIKE '%' || $1 || '%'
+			OR original_file_name ILIKE '%' || $1 || '%'
+		);
+	`
+
+	const listQuery = `
+		SELECT
+			id,
+			chapter_id,
+			title,
+			slug,
+			description,
+			original_file_name,
+			stored_object_key,
+			file_content_type,
+			file_size_bytes,
+			is_watermarked,
+			is_published,
+			sort_order,
+			uploaded_by,
+			created_at,
+			updated_at
+		FROM notes
+		WHERE (
+			$1 = ''
+			OR title ILIKE '%' || $1 || '%'
+			OR slug ILIKE '%' || $1 || '%'
+			OR original_file_name ILIKE '%' || $1 || '%'
+		)
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3;
+	`
+
+	var totalItems int
+
+	if err := r.db.QueryRow(ctx, countQuery, params.Search).Scan(&totalItems); err != nil {
+		return ListNotesResult{}, fmt.Errorf("count admin notes: %w", err)
+	}
+
+	rows, err := r.db.Query(
+		ctx,
+		listQuery,
+		params.Search,
+		params.Limit(),
+		params.Offset(),
+	)
+	if err != nil {
+		return ListNotesResult{}, fmt.Errorf("list admin notes: %w", err)
+	}
+	defer rows.Close()
+
+	notes := make([]Note, 0)
+
+	for rows.Next() {
+		var note Note
+
+		if err := rows.Scan(
+			&note.ID,
+			&note.ChapterID,
+			&note.Title,
+			&note.Slug,
+			&note.Description,
+			&note.OriginalFileName,
+			&note.StoredObjectKey,
+			&note.FileContentType,
+			&note.FileSizeBytes,
+			&note.IsWatermarked,
+			&note.IsPublished,
+			&note.SortOrder,
+			&note.UploadedBy,
+			&note.CreatedAt,
+			&note.UpdatedAt,
+		); err != nil {
+			return ListNotesResult{}, fmt.Errorf("scan admin note: %w", err)
+		}
+
+		notes = append(notes, note)
+	}
+
+	if err := rows.Err(); err != nil {
+		return ListNotesResult{}, fmt.Errorf("iterate admin notes: %w", err)
+	}
+
+	return ListNotesResult{
+		Notes:      notes,
+		TotalItems: totalItems,
+	}, nil
 }

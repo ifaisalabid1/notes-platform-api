@@ -198,6 +198,10 @@ func (s *Service) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID, 
 	}, nil
 }
 
+func (s *Service) ListAdmin(ctx context.Context, params pagination.Params) (ListNotesResult, error) {
+	return s.repository.ListAdmin(ctx, params)
+}
+
 func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (Note, error) {
 	return s.repository.GetByID(ctx, id)
 }
