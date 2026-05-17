@@ -84,6 +84,7 @@ func main() {
 		UploadMaxBytes:     cfg.UploadMaxBytes,
 		PublicFileBaseURL:  cfg.PublicFileBaseURL,
 		WorkerAPISecret:    cfg.WorkerAPISecret,
+		FrontendOrigin:     cfg.FrontendOrigin,
 	})
 
 	server := apphttp.NewServer(cfg.HTTPPort, router, logr)

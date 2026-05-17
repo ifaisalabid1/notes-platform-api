@@ -30,6 +30,8 @@ type Config struct {
 
 	WatermarkEnabled   bool
 	WatermarkBrandText string
+
+	FrontendOrigin string
 }
 
 func Load() (Config, error) {
@@ -52,6 +54,8 @@ func Load() (Config, error) {
 		PublicFileBaseURL: getEnv("PUBLIC_FILE_BASE_URL", "http://localhost:8787"),
 
 		WatermarkBrandText: getEnv("WATERMARK_BRAND_TEXT", "Notes Platform"),
+
+		FrontendOrigin: getEnv("FRONTEND_ORIGIN", "http://localhost:5173"),
 	}
 
 	cookieSecure, err := strconv.ParseBool(getEnv("COOKIE_SECURE", "false"))

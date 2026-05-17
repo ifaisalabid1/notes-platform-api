@@ -7,12 +7,13 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/admin"
 	"github.com/ifaisalabid1/notes-platform-api/internal/chapter"
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/handlers"
+	appmiddleware "github.com/ifaisalabid1/notes-platform-api/internal/http/middleware"
 	"github.com/ifaisalabid1/notes-platform-api/internal/internalmw"
 	"github.com/ifaisalabid1/notes-platform-api/internal/note"
 	"github.com/ifaisalabid1/notes-platform-api/internal/semester"
@@ -35,16 +36,21 @@ type RouterDeps struct {
 	PublicFileBaseURL  string
 
 	WorkerAPISecret string
+
+	FrontendOrigin string
 }
 
 func NewRouter(deps RouterDeps) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
-	r.Use(middleware.RequestSize(20 << 20))
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.Timeout(60 * time.Second))
+	r.Use(chimiddleware.RequestSize(20 << 20))
+	r.Use(appmiddleware.CORS(appmiddleware.CORSConfig{
+		AllowedOrigin: deps.FrontendOrigin,
+	}))
 	r.Use(deps.SessionManager.LoadAndSave)
 
 	healthHandler := handlers.NewHealthHandler(deps.Database, deps.Logger)
