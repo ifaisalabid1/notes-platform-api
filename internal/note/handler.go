@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/response"
+	"github.com/ifaisalabid1/notes-platform-api/internal/pagination"
 )
 
 type Handler struct {
@@ -103,7 +104,9 @@ func (h *Handler) ListAdminByChapter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	notes, err := h.service.ListAdminByChapter(r.Context(), chapterID)
+	params := pagination.FromRequest(r)
+
+	result, err := h.service.ListAdminByChapter(r.Context(), chapterID, params)
 	if err != nil {
 		h.logger.Error("failed to list admin notes", slog.Any("error", err))
 		response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
@@ -111,7 +114,8 @@ func (h *Handler) ListAdminByChapter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, map[string]any{
-		"data": notes,
+		"data":       result.Notes,
+		"pagination": pagination.NewMetadata(params, result.TotalItems),
 	})
 }
 
@@ -121,7 +125,9 @@ func (h *Handler) ListPublicByChapter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	notes, err := h.service.ListPublicByChapter(r.Context(), chapterID)
+	params := pagination.FromRequest(r)
+
+	result, err := h.service.ListPublicByChapter(r.Context(), chapterID, params)
 	if err != nil {
 		h.logger.Error("failed to list public notes", slog.Any("error", err))
 		response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
@@ -129,7 +135,8 @@ func (h *Handler) ListPublicByChapter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, map[string]any{
-		"data": notes,
+		"data":       result.Notes,
+		"pagination": pagination.NewMetadata(params, result.TotalItems),
 	})
 }
 

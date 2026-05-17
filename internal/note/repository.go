@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/ifaisalabid1/notes-platform-api/internal/pagination"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -111,7 +112,7 @@ func (r *Repository) Create(ctx context.Context, chapterID uuid.UUID, input Crea
 	return note, nil
 }
 
-func (r *Repository) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID) ([]Note, error) {
+func (r *Repository) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID, params pagination.Params) (ListNotesResult, error) {
 	const query = `
 		SELECT
 			id,
@@ -128,16 +129,24 @@ func (r *Repository) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID
 			sort_order,
 			uploaded_by,
 			created_at,
-			updated_at
+			updated_at,
+			COUNT(*) OVER()
 		FROM notes
 		WHERE chapter_id = $1
-		ORDER BY sort_order ASC, created_at DESC;
+		AND (
+			$2 = ''
+			OR title ILIKE '%' || $2 || '%'
+			OR slug ILIKE '%' || $2 || '%'
+			OR original_file_name ILIKE '%' || $2 || '%'
+		)
+		ORDER BY sort_order ASC, created_at DESC
+		LIMIT $3 OFFSET $4;
 	`
 
-	return r.list(ctx, query, chapterID)
+	return r.listPaginated(ctx, query, chapterID, params.Search, params.Limit(), params.Offset())
 }
 
-func (r *Repository) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID) ([]Note, error) {
+func (r *Repository) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID, params pagination.Params) (ListNotesResult, error) {
 	const query = `
 		SELECT
 			id,
@@ -154,14 +163,22 @@ func (r *Repository) ListPublicByChapter(ctx context.Context, chapterID uuid.UUI
 			sort_order,
 			uploaded_by,
 			created_at,
-			updated_at
+			updated_at,
+			COUNT(*) OVER()
 		FROM notes
 		WHERE chapter_id = $1
 		AND is_published = true
-		ORDER BY sort_order ASC, created_at DESC;
+		AND (
+			$2 = ''
+			OR title ILIKE '%' || $2 || '%'
+			OR slug ILIKE '%' || $2 || '%'
+			OR original_file_name ILIKE '%' || $2 || '%'
+		)
+		ORDER BY sort_order ASC, created_at DESC
+		LIMIT $3 OFFSET $4;
 	`
 
-	return r.list(ctx, query, chapterID)
+	return r.listPaginated(ctx, query, chapterID, params.Search, params.Limit(), params.Offset())
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Note, error) {
@@ -346,6 +363,55 @@ func (r *Repository) list(ctx context.Context, query string, args ...any) ([]Not
 	}
 
 	return notes, nil
+}
+
+func (r *Repository) listPaginated(ctx context.Context, query string, args ...any) (ListNotesResult, error) {
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return ListNotesResult{}, fmt.Errorf("list notes: %w", err)
+	}
+	defer rows.Close()
+
+	notes := make([]Note, 0)
+	totalItems := 0
+
+	for rows.Next() {
+		var note Note
+		var rowTotal int
+
+		if err := rows.Scan(
+			&note.ID,
+			&note.ChapterID,
+			&note.Title,
+			&note.Slug,
+			&note.Description,
+			&note.OriginalFileName,
+			&note.StoredObjectKey,
+			&note.FileContentType,
+			&note.FileSizeBytes,
+			&note.IsWatermarked,
+			&note.IsPublished,
+			&note.SortOrder,
+			&note.UploadedBy,
+			&note.CreatedAt,
+			&note.UpdatedAt,
+			&rowTotal,
+		); err != nil {
+			return ListNotesResult{}, fmt.Errorf("scan note: %w", err)
+		}
+
+		totalItems = rowTotal
+		notes = append(notes, note)
+	}
+
+	if err := rows.Err(); err != nil {
+		return ListNotesResult{}, fmt.Errorf("iterate notes: %w", err)
+	}
+
+	return ListNotesResult{
+		Notes:      notes,
+		TotalItems: totalItems,
+	}, nil
 }
 
 func (r *Repository) getOne(ctx context.Context, query string, args ...any) (Note, error) {

@@ -39,6 +39,16 @@ type PublicNote struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
+type ListNotesResult struct {
+	Notes      []Note
+	TotalItems int
+}
+
+type ListPublicNotesResult struct {
+	Notes      []PublicNote
+	TotalItems int
+}
+
 type FileMetadata struct {
 	NoteID           uuid.UUID `json:"note_id"`
 	Title            string    `json:"title"`

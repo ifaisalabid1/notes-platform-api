@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/ifaisalabid1/notes-platform-api/internal/pagination"
 	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
 	"github.com/ifaisalabid1/notes-platform-api/internal/validation"
 	"github.com/ifaisalabid1/notes-platform-api/internal/watermark"
@@ -175,23 +176,26 @@ func (s *Service) Upload(ctx context.Context, chapterID uuid.UUID, input UploadN
 	return createdNote, nil
 }
 
-func (s *Service) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID) ([]Note, error) {
-	return s.repository.ListAdminByChapter(ctx, chapterID)
+func (s *Service) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID, params pagination.Params) (ListNotesResult, error) {
+	return s.repository.ListAdminByChapter(ctx, chapterID, params)
 }
 
-func (s *Service) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID) ([]PublicNote, error) {
-	notes, err := s.repository.ListPublicByChapter(ctx, chapterID)
+func (s *Service) ListPublicByChapter(ctx context.Context, chapterID uuid.UUID, params pagination.Params) (ListPublicNotesResult, error) {
+	result, err := s.repository.ListPublicByChapter(ctx, chapterID, params)
 	if err != nil {
-		return nil, err
+		return ListPublicNotesResult{}, err
 	}
 
-	publicNotes := make([]PublicNote, 0, len(notes))
+	publicNotes := make([]PublicNote, 0, len(result.Notes))
 
-	for _, n := range notes {
+	for _, n := range result.Notes {
 		publicNotes = append(publicNotes, s.toPublicNote(n))
 	}
 
-	return publicNotes, nil
+	return ListPublicNotesResult{
+		Notes:      publicNotes,
+		TotalItems: result.TotalItems,
+	}, nil
 }
 
 func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (Note, error) {
