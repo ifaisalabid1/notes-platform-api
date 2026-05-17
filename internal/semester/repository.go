@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/ifaisalabid1/notes-platform-api/internal/audit"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,9 +34,11 @@ func (r *Repository) Create(ctx context.Context, input CreateSemesterInput) (Sem
 			slug,
 			description,
 			sort_order,
-			is_published
+			is_published,
+			created_by,
+			updated_by
 		)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4, $5, $6, $6)
 		RETURNING
 			id,
 			title,
@@ -43,10 +46,13 @@ func (r *Repository) Create(ctx context.Context, input CreateSemesterInput) (Sem
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at;
 	`
 
+	actorID := audit.ActorIDFromContext(ctx)
 	var semester Semester
 
 	err := r.db.QueryRow(
@@ -57,6 +63,7 @@ func (r *Repository) Create(ctx context.Context, input CreateSemesterInput) (Sem
 		input.Description,
 		input.SortOrder,
 		input.IsPublished,
+		actorID,
 	).Scan(
 		&semester.ID,
 		&semester.Title,
@@ -64,6 +71,8 @@ func (r *Repository) Create(ctx context.Context, input CreateSemesterInput) (Sem
 		&semester.Description,
 		&semester.SortOrder,
 		&semester.IsPublished,
+		&semester.CreatedBy,
+		&semester.UpdatedBy,
 		&semester.CreatedAt,
 		&semester.UpdatedAt,
 	)
@@ -88,6 +97,8 @@ func (r *Repository) ListAdmin(ctx context.Context) ([]Semester, error) {
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM semesters
@@ -106,6 +117,8 @@ func (r *Repository) ListPublic(ctx context.Context) ([]Semester, error) {
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM semesters
@@ -125,6 +138,8 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Semester, error
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM semesters
@@ -143,6 +158,8 @@ func (r *Repository) GetPublishedByID(ctx context.Context, id uuid.UUID) (Semest
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM semesters
@@ -162,6 +179,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateSemes
 			description = $4,
 			sort_order = $5,
 			is_published = $6,
+			updated_by = $7,
 			updated_at = now()
 		WHERE id = $1
 		RETURNING
@@ -171,9 +189,13 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateSemes
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at;
 	`
+
+	actorID := audit.ActorIDFromContext(ctx)
 
 	var semester Semester
 
@@ -186,6 +208,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateSemes
 		input.Description,
 		input.SortOrder,
 		input.IsPublished,
+		actorID,
 	).Scan(
 		&semester.ID,
 		&semester.Title,
@@ -193,6 +216,8 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateSemes
 		&semester.Description,
 		&semester.SortOrder,
 		&semester.IsPublished,
+		&semester.CreatedBy,
+		&semester.UpdatedBy,
 		&semester.CreatedAt,
 		&semester.UpdatedAt,
 	)
@@ -249,6 +274,8 @@ func (r *Repository) list(ctx context.Context, query string) ([]Semester, error)
 			&semester.Description,
 			&semester.SortOrder,
 			&semester.IsPublished,
+			&semester.CreatedBy,
+			&semester.UpdatedBy,
 			&semester.CreatedAt,
 			&semester.UpdatedAt,
 		); err != nil {
@@ -275,6 +302,8 @@ func (r *Repository) getOne(ctx context.Context, query string, args ...any) (Sem
 		&semester.Description,
 		&semester.SortOrder,
 		&semester.IsPublished,
+		&semester.CreatedBy,
+		&semester.UpdatedBy,
 		&semester.CreatedAt,
 		&semester.UpdatedAt,
 	)

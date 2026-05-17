@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/ifaisalabid1/notes-platform-api/internal/audit"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,9 +36,11 @@ func (r *Repository) Create(ctx context.Context, unitID uuid.UUID, input CreateC
 			slug,
 			description,
 			sort_order,
-			is_published
+			is_published,
+			created_by,
+			updated_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
 		RETURNING
 			id,
 			unit_id,
@@ -46,10 +49,13 @@ func (r *Repository) Create(ctx context.Context, unitID uuid.UUID, input CreateC
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at;
 	`
 
+	actorID := audit.ActorIDFromContext(ctx)
 	var chapter Chapter
 
 	err := r.db.QueryRow(
@@ -61,6 +67,7 @@ func (r *Repository) Create(ctx context.Context, unitID uuid.UUID, input CreateC
 		input.Description,
 		input.SortOrder,
 		input.IsPublished,
+		actorID,
 	).Scan(
 		&chapter.ID,
 		&chapter.UnitID,
@@ -69,6 +76,8 @@ func (r *Repository) Create(ctx context.Context, unitID uuid.UUID, input CreateC
 		&chapter.Description,
 		&chapter.SortOrder,
 		&chapter.IsPublished,
+		&chapter.CreatedBy,
+		&chapter.UpdatedBy,
 		&chapter.CreatedAt,
 		&chapter.UpdatedAt,
 	)
@@ -98,6 +107,8 @@ func (r *Repository) ListAdminByUnit(ctx context.Context, unitID uuid.UUID) ([]C
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM chapters
@@ -118,6 +129,8 @@ func (r *Repository) ListPublicByUnit(ctx context.Context, unitID uuid.UUID) ([]
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM chapters
@@ -139,6 +152,8 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Chapter, error)
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM chapters
@@ -158,6 +173,8 @@ func (r *Repository) GetPublishedByID(ctx context.Context, id uuid.UUID) (Chapte
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM chapters
@@ -177,6 +194,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateChapt
 			description = $4,
 			sort_order = $5,
 			is_published = $6,
+			updated_by = $7,
 			updated_at = now()
 		WHERE id = $1
 		RETURNING
@@ -187,10 +205,13 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateChapt
 			description,
 			sort_order,
 			is_published,
+			created_by,
+			updated_by,
 			created_at,
 			updated_at;
 	`
 
+	actorID := audit.ActorIDFromContext(ctx)
 	var chapter Chapter
 
 	err := r.db.QueryRow(
@@ -202,6 +223,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateChapt
 		input.Description,
 		input.SortOrder,
 		input.IsPublished,
+		actorID,
 	).Scan(
 		&chapter.ID,
 		&chapter.UnitID,
@@ -210,6 +232,8 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateChapt
 		&chapter.Description,
 		&chapter.SortOrder,
 		&chapter.IsPublished,
+		&chapter.CreatedBy,
+		&chapter.UpdatedBy,
 		&chapter.CreatedAt,
 		&chapter.UpdatedAt,
 	)
@@ -267,6 +291,8 @@ func (r *Repository) list(ctx context.Context, query string, args ...any) ([]Cha
 			&chapter.Description,
 			&chapter.SortOrder,
 			&chapter.IsPublished,
+			&chapter.CreatedBy,
+			&chapter.UpdatedBy,
 			&chapter.CreatedAt,
 			&chapter.UpdatedAt,
 		); err != nil {
@@ -294,6 +320,8 @@ func (r *Repository) getOne(ctx context.Context, query string, args ...any) (Cha
 		&chapter.Description,
 		&chapter.SortOrder,
 		&chapter.IsPublished,
+		&chapter.CreatedBy,
+		&chapter.UpdatedBy,
 		&chapter.CreatedAt,
 		&chapter.UpdatedAt,
 	)

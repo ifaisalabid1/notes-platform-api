@@ -7,6 +7,7 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
 
+	"github.com/ifaisalabid1/notes-platform-api/internal/audit"
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/response"
 )
 
@@ -54,6 +55,8 @@ func (m *Middleware) RequireAdmin(next http.Handler) http.Handler {
 		}
 
 		ctx := ContextWithAdmin(r.Context(), currentAdmin)
+		ctx = audit.ContextWithActorID(ctx, currentAdmin.ID)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

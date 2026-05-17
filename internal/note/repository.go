@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/ifaisalabid1/notes-platform-api/internal/audit"
 	"github.com/ifaisalabid1/notes-platform-api/internal/pagination"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -42,9 +43,11 @@ func (r *Repository) Create(ctx context.Context, chapterID uuid.UUID, input Crea
 			file_size_bytes,
 			is_watermarked,
 			is_published,
-			sort_order
+			sort_order,
+			uploaded_by,
+			updated_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
 		RETURNING
 			id,
 			chapter_id,
@@ -59,10 +62,12 @@ func (r *Repository) Create(ctx context.Context, chapterID uuid.UUID, input Crea
 			is_published,
 			sort_order,
 			uploaded_by,
+			updated_by,
 			created_at,
 			updated_at;
 	`
 
+	actorID := audit.ActorIDFromContext(ctx)
 	var note Note
 
 	err := r.db.QueryRow(
@@ -79,6 +84,7 @@ func (r *Repository) Create(ctx context.Context, chapterID uuid.UUID, input Crea
 		input.IsWatermarked,
 		input.IsPublished,
 		input.SortOrder,
+		actorID,
 	).Scan(
 		&note.ID,
 		&note.ChapterID,
@@ -93,6 +99,7 @@ func (r *Repository) Create(ctx context.Context, chapterID uuid.UUID, input Crea
 		&note.IsPublished,
 		&note.SortOrder,
 		&note.UploadedBy,
+		&note.UpdatedBy,
 		&note.CreatedAt,
 		&note.UpdatedAt,
 	)
@@ -140,6 +147,7 @@ func (r *Repository) ListAdminByChapter(ctx context.Context, chapterID uuid.UUID
 			is_published,
 			sort_order,
 			uploaded_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM notes
@@ -186,6 +194,7 @@ func (r *Repository) ListPublicByChapter(ctx context.Context, chapterID uuid.UUI
 			is_published,
 			sort_order,
 			uploaded_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM notes
@@ -220,6 +229,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Note, error) {
 			is_published,
 			sort_order,
 			uploaded_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM notes
@@ -245,6 +255,7 @@ func (r *Repository) GetPublishedByID(ctx context.Context, id uuid.UUID) (Note, 
 			is_published,
 			sort_order,
 			uploaded_by,
+			updated_by,
 			created_at,
 			updated_at
 		FROM notes
@@ -264,6 +275,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateNoteI
 			description = $4,
 			is_published = $5,
 			sort_order = $6,
+			updated_by = $7,
 			updated_at = now()
 		WHERE id = $1
 		RETURNING
@@ -280,10 +292,12 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateNoteI
 			is_published,
 			sort_order,
 			uploaded_by,
+			updated_by,
 			created_at,
 			updated_at;
 	`
 
+	actorID := audit.ActorIDFromContext(ctx)
 	var note Note
 
 	err := r.db.QueryRow(
@@ -295,6 +309,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateNoteI
 		input.Description,
 		input.IsPublished,
 		input.SortOrder,
+		actorID,
 	).Scan(
 		&note.ID,
 		&note.ChapterID,
@@ -309,6 +324,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, input UpdateNoteI
 		&note.IsPublished,
 		&note.SortOrder,
 		&note.UploadedBy,
+		&note.UpdatedBy,
 		&note.CreatedAt,
 		&note.UpdatedAt,
 	)
@@ -372,6 +388,7 @@ func (r *Repository) list(ctx context.Context, query string, args ...any) ([]Not
 			&note.IsPublished,
 			&note.SortOrder,
 			&note.UploadedBy,
+			&note.UpdatedBy,
 			&note.CreatedAt,
 			&note.UpdatedAt,
 		); err != nil {
@@ -433,6 +450,7 @@ func (r *Repository) listWithCount(
 			&note.IsPublished,
 			&note.SortOrder,
 			&note.UploadedBy,
+			&note.UpdatedBy,
 			&note.CreatedAt,
 			&note.UpdatedAt,
 		); err != nil {
@@ -469,6 +487,7 @@ func (r *Repository) getOne(ctx context.Context, query string, args ...any) (Not
 		&note.IsPublished,
 		&note.SortOrder,
 		&note.UploadedBy,
+		&note.UpdatedBy,
 		&note.CreatedAt,
 		&note.UpdatedAt,
 	)
@@ -587,6 +606,7 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 			n.is_published,
 			n.sort_order,
 			n.uploaded_by,
+			n.updated_by,
 			n.created_at,
 			n.updated_at,
 
@@ -653,6 +673,7 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 			&note.IsPublished,
 			&note.SortOrder,
 			&note.UploadedBy,
+			&note.UpdatedBy,
 			&note.CreatedAt,
 			&note.UpdatedAt,
 			&note.ChapterTitle,

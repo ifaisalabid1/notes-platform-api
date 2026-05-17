@@ -21,6 +21,7 @@ type Note struct {
 	IsPublished      bool       `json:"is_published"`
 	SortOrder        int        `json:"sort_order"`
 	UploadedBy       *uuid.UUID `json:"uploaded_by"`
+	UpdatedBy        *uuid.UUID `json:"updated_by"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 }
@@ -39,6 +40,7 @@ type AdminNoteListItem struct {
 	IsPublished      bool       `json:"is_published"`
 	SortOrder        int        `json:"sort_order"`
 	UploadedBy       *uuid.UUID `json:"uploaded_by"`
+	UpdatedBy        *uuid.UUID `json:"updated_by"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 
