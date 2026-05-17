@@ -284,3 +284,35 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		"message": "Password changed successfully.",
 	})
 }
+
+func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	currentAdmin, ok := CurrentAdmin(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", "You must be logged in.")
+		return
+	}
+
+	var input UpdateProfileInput
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+
+	updatedAdmin, err := h.service.UpdateProfile(r.Context(), currentAdmin, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDisplayNameRequired):
+			response.Error(w, http.StatusBadRequest, "display_name_required", "Display name is required.")
+		case errors.Is(err, ErrAdminNotFound):
+			response.Error(w, http.StatusNotFound, "admin_not_found", "Admin was not found.")
+		default:
+			h.logger.Error("failed to update admin profile", slog.Any("error", err))
+			response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		}
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, updatedAdmin)
+}

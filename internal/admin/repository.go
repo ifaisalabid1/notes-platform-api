@@ -372,3 +372,45 @@ func (r *Repository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, passw
 
 	return nil
 }
+
+func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, displayName string) (Admin, error) {
+	const query = `
+		UPDATE admins
+		SET
+			display_name = $2,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING
+			id,
+			email,
+			display_name,
+			role,
+			is_active,
+			last_login_at,
+			created_at,
+			updated_at;
+	`
+
+	var a Admin
+
+	err := r.db.QueryRow(ctx, query, id, displayName).Scan(
+		&a.ID,
+		&a.Email,
+		&a.DisplayName,
+		&a.Role,
+		&a.IsActive,
+		&a.LastLoginAt,
+		&a.CreatedAt,
+		&a.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Admin{}, ErrAdminNotFound
+		}
+
+		return Admin{}, fmt.Errorf("update admin profile: %w", err)
+	}
+
+	return a, nil
+}

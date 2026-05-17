@@ -232,3 +232,13 @@ func (s *Service) ChangePassword(ctx context.Context, actor Admin, input ChangeP
 
 	return s.repository.UpdatePasswordHash(ctx, actor.ID, newPasswordHash)
 }
+
+func (s *Service) UpdateProfile(ctx context.Context, actor Admin, input UpdateProfileInput) (Admin, error) {
+	input.DisplayName = strings.TrimSpace(input.DisplayName)
+
+	if input.DisplayName == "" {
+		return Admin{}, ErrDisplayNameRequired
+	}
+
+	return s.repository.UpdateProfile(ctx, actor.ID, input.DisplayName)
+}

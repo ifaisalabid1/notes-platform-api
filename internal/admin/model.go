@@ -54,3 +54,7 @@ type ChangePasswordInput struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password"`
 }
+
+type UpdateProfileInput struct {
+	DisplayName string `json:"display_name"`
+}
