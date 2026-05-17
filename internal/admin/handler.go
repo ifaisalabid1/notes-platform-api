@@ -234,3 +234,53 @@ func parseAdminID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 
 	return id, true
 }
+
+func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	currentAdmin, ok := CurrentAdmin(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", "You must be logged in.")
+		return
+	}
+
+	var input ChangePasswordInput
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+
+	if err := h.service.ChangePassword(r.Context(), currentAdmin, input); err != nil {
+		switch {
+		case errors.Is(err, ErrCurrentPasswordRequired):
+			response.Error(w, http.StatusBadRequest, "current_password_required", "Current password is required.")
+		case errors.Is(err, ErrNewPasswordRequired):
+			response.Error(w, http.StatusBadRequest, "new_password_required", "New password is required.")
+		case errors.Is(err, ErrPasswordTooShort):
+			response.Error(w, http.StatusBadRequest, "password_too_short", "Password must be at least 10 characters.")
+		case errors.Is(err, ErrSamePassword):
+			response.Error(w, http.StatusBadRequest, "same_password", "New password must be different from current password.")
+		case errors.Is(err, ErrInvalidCredentials):
+			response.Error(w, http.StatusUnauthorized, "invalid_credentials", "Current password is incorrect.")
+		case errors.Is(err, ErrInactiveAdmin):
+			response.Error(w, http.StatusForbidden, "admin_inactive", "Admin account is inactive.")
+		default:
+			h.logger.Error("failed to change password", slog.Any("error", err))
+			response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		}
+
+		return
+	}
+
+	if err := h.sessionManager.RenewToken(r.Context()); err != nil {
+		h.logger.Error("failed to renew session token after password change", slog.Any("error", err))
+		response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		return
+	}
+
+	h.sessionManager.Put(r.Context(), "admin_id", currentAdmin.ID.String())
+	h.sessionManager.Put(r.Context(), "admin_role", string(currentAdmin.Role))
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "Password changed successfully.",
+	})
+}

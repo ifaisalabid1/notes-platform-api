@@ -351,3 +351,24 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, isActive bo
 
 	return a, nil
 }
+
+func (r *Repository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	const query = `
+		UPDATE admins
+		SET
+			password_hash = $2,
+			updated_at = now()
+		WHERE id = $1;
+	`
+
+	commandTag, err := r.db.Exec(ctx, query, id, passwordHash)
+	if err != nil {
+		return fmt.Errorf("update admin password hash: %w", err)
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		return ErrAdminNotFound
+	}
+
+	return nil
+}

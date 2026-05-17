@@ -49,3 +49,8 @@ type CreateAdminInput struct {
 type UpdateAdminStatusInput struct {
 	IsActive bool `json:"is_active"`
 }
+
+type ChangePasswordInput struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}

@@ -11,15 +11,18 @@ import (
 )
 
 var (
-	ErrEmailRequired        = errors.New("email is required")
-	ErrInvalidEmail         = errors.New("email is invalid")
-	ErrPasswordRequired     = errors.New("password is required")
-	ErrPasswordTooShort     = errors.New("password must be at least 8 characters")
-	ErrDisplayNameRequired  = errors.New("display name is required")
-	ErrInvalidCredentials   = errors.New("invalid email or password")
-	ErrInactiveAdmin        = errors.New("admin is inactive")
-	ErrForbidden            = errors.New("forbidden")
-	ErrCannotDeactivateSelf = errors.New("owner cannot deactivate themselves")
+	ErrEmailRequired           = errors.New("email is required")
+	ErrInvalidEmail            = errors.New("email is invalid")
+	ErrPasswordRequired        = errors.New("password is required")
+	ErrPasswordTooShort        = errors.New("password must be at least 8 characters")
+	ErrDisplayNameRequired     = errors.New("display name is required")
+	ErrInvalidCredentials      = errors.New("invalid email or password")
+	ErrInactiveAdmin           = errors.New("admin is inactive")
+	ErrForbidden               = errors.New("forbidden")
+	ErrCannotDeactivateSelf    = errors.New("owner cannot deactivate themselves")
+	ErrCurrentPasswordRequired = errors.New("current password is required")
+	ErrNewPasswordRequired     = errors.New("new password is required")
+	ErrSamePassword            = errors.New("new password must be different from current password")
 )
 
 type Service struct {
@@ -187,4 +190,45 @@ func (s *Service) UpdateAdminStatus(
 	}
 
 	return s.repository.UpdateStatus(ctx, adminID, input.IsActive)
+}
+
+func (s *Service) ChangePassword(ctx context.Context, actor Admin, input ChangePasswordInput) error {
+	input.CurrentPassword = strings.TrimSpace(input.CurrentPassword)
+	input.NewPassword = strings.TrimSpace(input.NewPassword)
+
+	if input.CurrentPassword == "" {
+		return ErrCurrentPasswordRequired
+	}
+
+	if input.NewPassword == "" {
+		return ErrNewPasswordRequired
+	}
+
+	if len(input.NewPassword) < 10 {
+		return ErrPasswordTooShort
+	}
+
+	if input.CurrentPassword == input.NewPassword {
+		return ErrSamePassword
+	}
+
+	adminWithPassword, err := s.repository.GetByEmail(ctx, actor.Email)
+	if err != nil {
+		return err
+	}
+
+	if !adminWithPassword.IsActive {
+		return ErrInactiveAdmin
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(adminWithPassword.PasswordHash), []byte(input.CurrentPassword)); err != nil {
+		return ErrInvalidCredentials
+	}
+
+	newPasswordHash, err := hashPassword(input.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	return s.repository.UpdatePasswordHash(ctx, actor.ID, newPasswordHash)
 }
