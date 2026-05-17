@@ -709,3 +709,64 @@ func (r *Repository) ListAdmin(ctx context.Context, params pagination.Params) (L
 		TotalItems: totalItems,
 	}, nil
 }
+
+func (r *Repository) GetAdminDetailByID(ctx context.Context, id uuid.UUID) (AdminNoteDetail, error) {
+	const query = `
+		SELECT
+			n.id,
+			n.chapter_id,
+			n.title,
+			n.slug,
+			n.description,
+			n.original_file_name,
+			n.stored_object_key,
+			n.file_content_type,
+			n.file_size_bytes,
+			n.is_watermarked,
+			n.is_published,
+			n.sort_order,
+			n.uploaded_by,
+			uploaded_admin.display_name AS uploaded_by_name,
+			n.updated_by,
+			updated_admin.display_name AS updated_by_name,
+			n.created_at,
+			n.updated_at
+		FROM notes n
+		LEFT JOIN admins uploaded_admin ON uploaded_admin.id = n.uploaded_by
+		LEFT JOIN admins updated_admin ON updated_admin.id = n.updated_by
+		WHERE n.id = $1;
+	`
+
+	var note AdminNoteDetail
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&note.ID,
+		&note.ChapterID,
+		&note.Title,
+		&note.Slug,
+		&note.Description,
+		&note.OriginalFileName,
+		&note.StoredObjectKey,
+		&note.FileContentType,
+		&note.FileSizeBytes,
+		&note.IsWatermarked,
+		&note.IsPublished,
+		&note.SortOrder,
+		&note.UploadedBy,
+		&note.UploadedByName,
+		&note.UpdatedBy,
+		&note.UpdatedByName,
+		&note.CreatedAt,
+		&note.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AdminNoteDetail{}, ErrNoteNotFound
+		}
+
+		return AdminNoteDetail{}, fmt.Errorf("get admin note detail: %w", err)
+	}
+
+	return note, nil
+}

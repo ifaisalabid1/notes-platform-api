@@ -202,8 +202,8 @@ func (s *Service) ListAdmin(ctx context.Context, params pagination.Params) (List
 	return s.repository.ListAdmin(ctx, params)
 }
 
-func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (Note, error) {
-	return s.repository.GetByID(ctx, id)
+func (s *Service) GetAdminByID(ctx context.Context, id uuid.UUID) (AdminNoteDetail, error) {
+	return s.repository.GetAdminDetailByID(ctx, id)
 }
 
 func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (PublicNote, error) {
