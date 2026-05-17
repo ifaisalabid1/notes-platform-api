@@ -2,20 +2,17 @@ package chapter
 
 import (
 	"context"
-	"errors"
-	"regexp"
-	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/ifaisalabid1/notes-platform-api/internal/validation"
 )
 
 var (
-	ErrTitleRequired = errors.New("title is required")
-	ErrSlugRequired  = errors.New("slug is required")
-	ErrInvalidSlug   = errors.New("slug may only contain lowercase letters, numbers, and hyphens")
+	ErrTitleRequired = validation.ErrTitleRequired
+	ErrSlugRequired  = validation.ErrSlugRequired
+	ErrInvalidSlug   = validation.ErrInvalidSlug
 )
-
-var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Service struct {
 	repository *Repository
@@ -28,10 +25,18 @@ func NewService(repository *Repository) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, unitID uuid.UUID, input CreateChapterInput) (Chapter, error) {
-	input.Title = strings.TrimSpace(input.Title)
-	input.Slug = strings.TrimSpace(input.Slug)
+	normalized := validation.NormalizeTitleSlug(validation.TitleSlugInput{
+		Title: input.Title,
+		Slug:  input.Slug,
+	})
 
-	if err := validateTitleAndSlug(input.Title, input.Slug); err != nil {
+	input.Title = normalized.Title
+	input.Slug = normalized.Slug
+
+	if err := validation.ValidateTitleSlug(validation.TitleSlugInput{
+		Title: input.Title,
+		Slug:  input.Slug,
+	}); err != nil {
 		return Chapter{}, err
 	}
 
@@ -55,10 +60,18 @@ func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (Chapter, err
 }
 
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateChapterInput) (Chapter, error) {
-	input.Title = strings.TrimSpace(input.Title)
-	input.Slug = strings.TrimSpace(input.Slug)
+	normalized := validation.NormalizeTitleSlug(validation.TitleSlugInput{
+		Title: input.Title,
+		Slug:  input.Slug,
+	})
 
-	if err := validateTitleAndSlug(input.Title, input.Slug); err != nil {
+	input.Title = normalized.Title
+	input.Slug = normalized.Slug
+
+	if err := validation.ValidateTitleSlug(validation.TitleSlugInput{
+		Title: input.Title,
+		Slug:  input.Slug,
+	}); err != nil {
 		return Chapter{}, err
 	}
 
@@ -67,20 +80,4 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateChapterI
 
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.repository.Delete(ctx, id)
-}
-
-func validateTitleAndSlug(title string, slug string) error {
-	if title == "" {
-		return ErrTitleRequired
-	}
-
-	if slug == "" {
-		return ErrSlugRequired
-	}
-
-	if !slugPattern.MatchString(slug) {
-		return ErrInvalidSlug
-	}
-
-	return nil
 }

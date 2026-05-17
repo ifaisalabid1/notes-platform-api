@@ -7,20 +7,20 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/storage"
+	"github.com/ifaisalabid1/notes-platform-api/internal/validation"
 	"github.com/ifaisalabid1/notes-platform-api/internal/watermark"
 )
 
 var (
-	ErrTitleRequired            = errors.New("title is required")
-	ErrSlugRequired             = errors.New("slug is required")
-	ErrInvalidSlug              = errors.New("slug may only contain lowercase letters, numbers, and hyphens")
+	ErrTitleRequired            = validation.ErrTitleRequired
+	ErrSlugRequired             = validation.ErrSlugRequired
+	ErrInvalidSlug              = validation.ErrInvalidSlug
 	ErrOriginalFileNameRequired = errors.New("original file name is required")
 	ErrStoredObjectKeyRequired  = errors.New("stored object key is required")
 	ErrFileContentTypeRequired  = errors.New("file content type is required")
@@ -29,8 +29,6 @@ var (
 	ErrUnsupportedFileType      = errors.New("unsupported file type")
 	ErrFileTooLarge             = errors.New("file is too large")
 )
-
-var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Service struct {
 	repository         *Repository
@@ -57,8 +55,14 @@ func NewService(
 }
 
 func (s *Service) Create(ctx context.Context, chapterID uuid.UUID, input CreateNoteInput) (Note, error) {
-	input.Title = strings.TrimSpace(input.Title)
-	input.Slug = strings.TrimSpace(input.Slug)
+	normalized := validation.NormalizeTitleSlug(validation.TitleSlugInput{
+		Title: input.Title,
+		Slug:  input.Slug,
+	})
+
+	input.Title = normalized.Title
+	input.Slug = normalized.Slug
+
 	input.OriginalFileName = strings.TrimSpace(input.OriginalFileName)
 	input.StoredObjectKey = strings.TrimSpace(input.StoredObjectKey)
 	input.FileContentType = strings.TrimSpace(input.FileContentType)
@@ -87,8 +91,13 @@ func (s *Service) Create(ctx context.Context, chapterID uuid.UUID, input CreateN
 }
 
 func (s *Service) Upload(ctx context.Context, chapterID uuid.UUID, input UploadNoteInput) (Note, error) {
-	input.Title = strings.TrimSpace(input.Title)
-	input.Slug = strings.TrimSpace(input.Slug)
+	normalized := validation.NormalizeTitleSlug(validation.TitleSlugInput{
+		Title: input.Title,
+		Slug:  input.Slug,
+	})
+
+	input.Title = normalized.Title
+	input.Slug = normalized.Slug
 
 	if err := validateTitleAndSlug(input.Title, input.Slug); err != nil {
 		return Note{}, err
@@ -199,8 +208,13 @@ func (s *Service) GetPublicByID(ctx context.Context, id uuid.UUID) (PublicNote, 
 }
 
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateNoteInput) (Note, error) {
-	input.Title = strings.TrimSpace(input.Title)
-	input.Slug = strings.TrimSpace(input.Slug)
+	normalized := validation.NormalizeTitleSlug(validation.TitleSlugInput{
+		Title: input.Title,
+		Slug:  input.Slug,
+	})
+
+	input.Title = normalized.Title
+	input.Slug = normalized.Slug
 
 	if err := validateTitleAndSlug(input.Title, input.Slug); err != nil {
 		return Note{}, err
@@ -227,19 +241,10 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func validateTitleAndSlug(title string, slug string) error {
-	if title == "" {
-		return ErrTitleRequired
-	}
-
-	if slug == "" {
-		return ErrSlugRequired
-	}
-
-	if !slugPattern.MatchString(slug) {
-		return ErrInvalidSlug
-	}
-
-	return nil
+	return validation.ValidateTitleSlug(validation.TitleSlugInput{
+		Title: title,
+		Slug:  slug,
+	})
 }
 
 func detectContentType(file io.ReadSeeker) (string, error) {
