@@ -124,6 +124,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 
 				r.With(adminMiddleware.RequireOwner).Get("/admins", adminHandler.ListAdmins)
 				r.With(adminMiddleware.RequireOwner).Post("/admins", adminHandler.CreateAdmin)
+				r.With(adminMiddleware.RequireOwner).Patch("/admins/{adminID}/status", adminHandler.UpdateAdminStatus)
 
 				r.Get("/semesters", semesterHandler.ListAdmin)
 				r.Post("/semesters", semesterHandler.Create)

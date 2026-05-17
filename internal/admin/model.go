@@ -45,3 +45,7 @@ type CreateAdminInput struct {
 	Password    string `json:"password"`
 	DisplayName string `json:"display_name"`
 }
+
+type UpdateAdminStatusInput struct {
+	IsActive bool `json:"is_active"`
+}

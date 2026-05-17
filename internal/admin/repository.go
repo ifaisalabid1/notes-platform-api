@@ -309,3 +309,45 @@ func (r *Repository) List(ctx context.Context) ([]Admin, error) {
 
 	return admins, nil
 }
+
+func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, isActive bool) (Admin, error) {
+	const query = `
+		UPDATE admins
+		SET
+			is_active = $2,
+			updated_at = now()
+		WHERE id = $1
+		RETURNING
+			id,
+			email,
+			display_name,
+			role,
+			is_active,
+			last_login_at,
+			created_at,
+			updated_at;
+	`
+
+	var a Admin
+
+	err := r.db.QueryRow(ctx, query, id, isActive).Scan(
+		&a.ID,
+		&a.Email,
+		&a.DisplayName,
+		&a.Role,
+		&a.IsActive,
+		&a.LastLoginAt,
+		&a.CreatedAt,
+		&a.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Admin{}, ErrAdminNotFound
+		}
+
+		return Admin{}, fmt.Errorf("update admin status: %w", err)
+	}
+
+	return a, nil
+}

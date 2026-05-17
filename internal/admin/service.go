@@ -11,14 +11,15 @@ import (
 )
 
 var (
-	ErrEmailRequired       = errors.New("email is required")
-	ErrInvalidEmail        = errors.New("email is invalid")
-	ErrPasswordRequired    = errors.New("password is required")
-	ErrPasswordTooShort    = errors.New("password must be at least 8 characters")
-	ErrDisplayNameRequired = errors.New("display name is required")
-	ErrInvalidCredentials  = errors.New("invalid email or password")
-	ErrInactiveAdmin       = errors.New("admin is inactive")
-	ErrForbidden           = errors.New("forbidden")
+	ErrEmailRequired        = errors.New("email is required")
+	ErrInvalidEmail         = errors.New("email is invalid")
+	ErrPasswordRequired     = errors.New("password is required")
+	ErrPasswordTooShort     = errors.New("password must be at least 8 characters")
+	ErrDisplayNameRequired  = errors.New("display name is required")
+	ErrInvalidCredentials   = errors.New("invalid email or password")
+	ErrInactiveAdmin        = errors.New("admin is inactive")
+	ErrForbidden            = errors.New("forbidden")
+	ErrCannotDeactivateSelf = errors.New("owner cannot deactivate themselves")
 )
 
 type Service struct {
@@ -160,4 +161,30 @@ func hashPassword(password string) (string, error) {
 	}
 
 	return string(hash), nil
+}
+
+func (s *Service) UpdateAdminStatus(
+	ctx context.Context,
+	actor Admin,
+	adminID uuid.UUID,
+	input UpdateAdminStatusInput,
+) (Admin, error) {
+	if actor.Role != RoleOwner {
+		return Admin{}, ErrForbidden
+	}
+
+	if actor.ID == adminID && !input.IsActive {
+		return Admin{}, ErrCannotDeactivateSelf
+	}
+
+	targetAdmin, err := s.repository.GetByID(ctx, adminID)
+	if err != nil {
+		return Admin{}, err
+	}
+
+	if targetAdmin.Role == RoleOwner && !input.IsActive {
+		return Admin{}, ErrCannotDeactivateSelf
+	}
+
+	return s.repository.UpdateStatus(ctx, adminID, input.IsActive)
 }

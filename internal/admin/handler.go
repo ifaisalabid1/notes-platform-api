@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/ifaisalabid1/notes-platform-api/internal/http/response"
 )
@@ -180,4 +182,55 @@ func (h *Handler) ListAdmins(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]any{
 		"data": admins,
 	})
+}
+
+func (h *Handler) UpdateAdminStatus(w http.ResponseWriter, r *http.Request) {
+	currentAdmin, ok := CurrentAdmin(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized", "You must be logged in.")
+		return
+	}
+
+	adminID, ok := parseAdminID(w, r)
+	if !ok {
+		return
+	}
+
+	var input UpdateAdminStatusInput
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+
+	updatedAdmin, err := h.service.UpdateAdminStatus(r.Context(), currentAdmin, adminID, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrForbidden):
+			response.Error(w, http.StatusForbidden, "forbidden", "Only the owner admin can perform this action.")
+		case errors.Is(err, ErrCannotDeactivateSelf):
+			response.Error(w, http.StatusBadRequest, "cannot_deactivate_self", "The owner admin cannot be deactivated.")
+		case errors.Is(err, ErrAdminNotFound):
+			response.Error(w, http.StatusNotFound, "admin_not_found", "Admin was not found.")
+		default:
+			h.logger.Error("failed to update admin status", slog.Any("error", err))
+			response.Error(w, http.StatusInternalServerError, "internal_error", "Something went wrong.")
+		}
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, updatedAdmin)
+}
+
+func parseAdminID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	rawID := chi.URLParam(r, "adminID")
+
+	id, err := uuid.Parse(rawID)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid_admin_id", "Admin ID must be a valid UUID.")
+		return uuid.Nil, false
+	}
+
+	return id, true
 }
